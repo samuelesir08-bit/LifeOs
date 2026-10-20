@@ -13,8 +13,10 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
-    },
+  "supportsTablet": true,
+  "bundleIdentifier": "com.lifeos.app"
+}
+
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
