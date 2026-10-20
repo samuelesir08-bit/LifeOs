@@ -428,9 +428,21 @@ function addTransaction() {
   setTaskPriority('Media');
 }
 
-  function addHabit() {
-    if (!habitName.trim()) return;
 
+function addHabit() {
+  if (!habitName.trim()) return;
+
+  if (editingHabitId !== null) {
+    setData((old) => ({
+      ...old,
+      habits: old.habits.map((habit) =>
+        habit.id === editingHabitId
+          ? { ...habit, name: habitName.trim() }
+          : habit
+      ),
+    }));
+    setEditingHabitId(null);
+  } else {
     setData((old) => ({
       ...old,
       habits: [
@@ -442,9 +454,10 @@ function addTransaction() {
         },
       ],
     }));
-
-    setHabitName('');
   }
+
+  setHabitName('');
+}
 
 function addEvent() {
   if (!eventTitle.trim() || !eventDate) return;
