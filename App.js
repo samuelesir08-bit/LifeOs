@@ -237,9 +237,17 @@ const exportBackup = async () => {
             !backup.data ||
             typeof backup.data !== 'object' ||
             Array.isArray(backup.data) ||
-            !Array.isArray(backup.data.goals) ||
+                       !Array.isArray(backup.data.goals) ||
             !Array.isArray(backup.data.transactions) ||
             !Array.isArray(backup.data.tasks) ||
+            (backup.data.events !== undefined &&
+              !Array.isArray(backup.data.events)) ||
+            (backup.data.habits !== undefined &&
+              !Array.isArray(backup.data.habits)) ||
+            (backup.data.projects !== undefined &&
+              !Array.isArray(backup.data.projects)) ||
+            (backup.data.subjects !== undefined &&
+              !Array.isArray(backup.data.subjects)) ||
             !backup.data.budgets ||
             typeof backup.data.budgets !== 'object'
           ) {
