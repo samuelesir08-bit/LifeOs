@@ -24,6 +24,7 @@ const CATEGORIES = [
   'Lavoro',
   'Altro',
 ];
+import AuthScreen from './AuthScreen';
 
 const DEFAULT_BUDGETS = {
   Alimentari: 200,
