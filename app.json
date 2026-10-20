@@ -1,31 +1,41 @@
 {
   "expo": {
     "name": "lifeos",
-    "slug": "snack-618371dd-0006-4c3c-930c-4b270eb28057",
+    "slug": "lifeos",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "ios": {
-  "supportsTablet": true,
-  "bundleIdentifier": "com.lifeos.app"
-}
-
+      "supportsTablet": true,
+      "bundleIdentifier": "com.lifeos.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./favicon.png"
+    },
+    "plugins": [
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "3329dd85-a0b0-41af-8d2c-2a5037c807c8"
+      }
     }
   }
 }
