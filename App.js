@@ -114,7 +114,7 @@ const getWeeklyOverview = () => {
 const [goalInput, setGoalInput] = useState('');
   const [taskName, setTaskName] = useState('');
   const [taskPriority, setTaskPriority] = useState('Media');
-  const [habitName, setHabitName] = useState('');
+  const [editingHabitId, setEditingHabitId] = useState(null);
   const [subjectName, setSubjectName] = useState('');
 const [subjectCfu, setSubjectCfu] = useState('');
 const [subjectExamDate, setSubjectExamDate] = useState('');
