@@ -114,7 +114,6 @@ const getWeeklyOverview = () => {
 const [goalInput, setGoalInput] = useState('');
   const [taskName, setTaskName] = useState('');
   const [taskPriority, setTaskPriority] = useState('Media');
-  const [editingHabitId, setEditingHabitId] = useState(null);
   const [subjectName, setSubjectName] = useState('');
 const [subjectCfu, setSubjectCfu] = useState('');
 const [subjectExamDate, setSubjectExamDate] = useState('');
@@ -429,20 +428,25 @@ function addTransaction() {
 }
 
 
+
 function addHabit() {
   if (!habitName.trim()) return;
 
-  if (editingHabitId !== null) {
-    setData((old) => ({
-      ...old,
-      habits: old.habits.map((habit) =>
-        habit.id === editingHabitId
-          ? { ...habit, name: habitName.trim() }
-          : habit
-      ),
-    }));
-    setEditingHabitId(null);
-  } else {
+  setData((old) => ({
+    ...old,
+    habits: [
+      ...old.habits,
+      {
+        id: String(Date.now()),
+        name: habitName.trim(),
+        done: false,
+      },
+    ],
+  }));
+
+  setHabitName('');
+}
+ else {
     setData((old) => ({
       ...old,
       habits: [
@@ -2153,62 +2157,27 @@ const progress =
             )}
 
             
+
 {data.habits.map((x) => (
-  <View key={x.id}>
-    <Pressable
-      style={styles.listItem}
-      onPress={() => toggleHabit(x.id)}
+  <Pressable
+    key={x.id}
+    style={styles.listItem}
+    onPress={() => toggleHabit(x.id)}
+  >
+    <Text style={styles.check}>
+      {x.done ? '☑' : '☐'}
+    </Text>
+    <Text
+      style={[
+        styles.itemText,
+        styles.flex,
+        x.done && styles.done,
+      ]}
     >
-      <Text style={styles.check}>
-        {x.done ? '☑' : '☐'}
-      </Text>
-      <Text
-        style={[
-          styles.itemText,
-          styles.flex,
-          x.done && styles.done,
-        ]}
-      >
-        {x.name}
-      </Text>
-    </Pressable>
-
-    <View style={{ flexDirection: 'row', gap: 8 }}>
-      {button('Modifica', () => {
-        setHabitName(x.name);
-        setEditingHabitId(x.id);
-      }, true)}
-
-      {button('Elimina', () => {
-        Alert.alert(
-          'Elimina abitudine',
-          `Vuoi eliminare "${x.name}"?`,
-          [
-            { text: 'Annulla', style: 'cancel' },
-            {
-              text: 'Elimina',
-              style: 'destructive',
-              onPress: () => {
-                setData((old) => ({
-                  ...old,
-                  habits: old.habits.filter(
-                    (habit) => habit.id !== x.id
-                  ),
-                }));
-
-                if (editingHabitId === x.id) {
-                  setEditingHabitId(null);
-                  setHabitName('');
-                }
-              },
-            },
-          ]
-        );
-      }, true)}
-    </View>
-  </View>
+      {x.name}
+    </Text>
+  </Pressable>
 ))}
-
 
             {card(
               <>
@@ -2226,22 +2195,7 @@ const progress =
                   }
                 )}
 
-                {button(
-  editingHabitId !== null
-    ? 'Salva modifica'
-    : '+ Aggiungi abitudine',
-  addHabit
-)}
-
-{editingHabitId !== null &&
-  button(
-    'Annulla modifica',
-    () => {
-      setEditingHabitId(null);
-      setHabitName('');
-    },
-    true
-  )}
+                {button('+ Aggiungi abitudine', addHabit)}
 
                 {button(
                   'Azzera per un nuovo giorno',
