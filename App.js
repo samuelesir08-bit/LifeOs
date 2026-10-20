@@ -2152,26 +2152,63 @@ const progress =
               </>
             )}
 
-            {data.habits.map((x) => (
-              <Pressable
-                key={x.id}
-                style={styles.listItem}
-                onPress={() => toggleHabit(x.id)}
-              >
-                <Text style={styles.check}>
-                  {x.done ? '☑' : '☐'}
-                </Text>
-                <Text
-                  style={[
-                    styles.itemText,
-                    styles.flex,
-                    x.done && styles.done,
-                  ]}
-                >
-                  {x.name}
-                </Text>
-              </Pressable>
-            ))}
+            
+{data.habits.map((x) => (
+  <View key={x.id}>
+    <Pressable
+      style={styles.listItem}
+      onPress={() => toggleHabit(x.id)}
+    >
+      <Text style={styles.check}>
+        {x.done ? '☑' : '☐'}
+      </Text>
+      <Text
+        style={[
+          styles.itemText,
+          styles.flex,
+          x.done && styles.done,
+        ]}
+      >
+        {x.name}
+      </Text>
+    </Pressable>
+
+    <View style={{ flexDirection: 'row', gap: 8 }}>
+      {button('Modifica', () => {
+        setHabitName(x.name);
+        setEditingHabitId(x.id);
+      }, true)}
+
+      {button('Elimina', () => {
+        Alert.alert(
+          'Elimina abitudine',
+          `Vuoi eliminare "${x.name}"?`,
+          [
+            { text: 'Annulla', style: 'cancel' },
+            {
+              text: 'Elimina',
+              style: 'destructive',
+              onPress: () => {
+                setData((old) => ({
+                  ...old,
+                  habits: old.habits.filter(
+                    (habit) => habit.id !== x.id
+                  ),
+                }));
+
+                if (editingHabitId === x.id) {
+                  setEditingHabitId(null);
+                  setHabitName('');
+                }
+              },
+            },
+          ]
+        );
+      }, true)}
+    </View>
+  </View>
+))}
+
 
             {card(
               <>
