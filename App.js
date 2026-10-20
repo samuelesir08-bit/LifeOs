@@ -106,6 +106,7 @@ const getWeeklyOverview = () => {
   const [eventFilter, setEventFilter] = useState('Tutti');
   const [data, setData] = useState(INITIAL);
   const [editingHabitId, setEditingHabitId] = useState(null);
+  const [habitName, setHabitName] = useState('');
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState('Home');
   const [description, setDescription] = useState('');
