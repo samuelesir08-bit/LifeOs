@@ -10,6 +10,7 @@ import {
   StatusBar,
   Platform,
   Share,
+  Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 const STORAGE_KEY = 'lifeos-v1';
@@ -209,6 +210,14 @@ const exportBackup = async () => {
 
 
   const importBackup = () => {
+        // Evita di usare API del browser su iOS e Android.
+    if (Platform.OS !== 'web') {
+      Alert.alert(
+        'Importa backup',
+        'Per importare un file JSON, apri LifeOS nella versione web.'
+      );
+      return;
+    }
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json,application/json';
