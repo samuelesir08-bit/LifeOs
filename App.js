@@ -2226,7 +2226,22 @@ const progress =
                   }
                 )}
 
-                {button('+ Aggiungi abitudine', addHabit)}
+                {button(
+  editingHabitId !== null
+    ? 'Salva modifica'
+    : '+ Aggiungi abitudine',
+  addHabit
+)}
+
+{editingHabitId !== null &&
+  button(
+    'Annulla modifica',
+    () => {
+      setEditingHabitId(null);
+      setHabitName('');
+    },
+    true
+  )}
 
                 {button(
                   'Azzera per un nuovo giorno',
