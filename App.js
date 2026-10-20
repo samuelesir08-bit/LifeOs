@@ -105,6 +105,7 @@ const getWeeklyOverview = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [eventFilter, setEventFilter] = useState('Tutti');
   const [data, setData] = useState(INITIAL);
+  const [editingHabitId, setEditingHabitId] = useState(null);
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState('Home');
   const [description, setDescription] = useState('');
@@ -433,17 +434,30 @@ function addTransaction() {
 function addHabit() {
   if (!habitName.trim()) return;
 
-  setData((old) => ({
-    ...old,
-    habits: [
-      ...old.habits,
-      {
-        id: String(Date.now()),
-        name: habitName.trim(),
-        done: false,
-      },
-    ],
-  }));
+  if (editingHabitId !== null) {
+    setData((old) => ({
+      ...old,
+      habits: old.habits.map((h) =>
+        h.id === editingHabitId
+          ? { ...h, name: habitName.trim() }
+          : h
+      ),
+    }));
+
+    setEditingHabitId(null);
+  } else {
+    setData((old) => ({
+      ...old,
+      habits: [
+        ...old.habits,
+        {
+          id: String(Date.now()),
+          name: habitName.trim(),
+          done: false,
+        },
+      ],
+    }));
+  }
 
   setHabitName('');
 }
@@ -2146,30 +2160,71 @@ const progress =
             
 
 {data.habits.map((x) => (
-  <Pressable
-    key={x.id}
-    style={styles.listItem}
-    onPress={() => toggleHabit(x.id)}
-  >
-    <Text style={styles.check}>
-      {x.done ? '☑' : '☐'}
-    </Text>
-    <Text
-      style={[
-        styles.itemText,
-        styles.flex,
-        x.done && styles.done,
-      ]}
+  <View key={x.id} style={styles.listItem}>
+    <Pressable
+      style={styles.flex}
+      onPress={() => toggleHabit(x.id)}
     >
-      {x.name}
-    </Text>
-  </Pressable>
+      <Text style={styles.check}>
+        {x.done ? '☑' : '☐'}
+      </Text>
+
+      <Text
+        style={[
+          styles.itemText,
+          x.done && styles.done,
+        ]}
+      >
+        {x.name}
+      </Text>
+    </Pressable>
+
+    {button('Modifica', () => {
+      setHabitName(x.name);
+      setEditingHabitId(x.id);
+    }, true)}
+
+    {button('Elimina', () => {
+      const removeHabit = () => {
+        setData((old) => ({
+          ...old,
+          habits: old.habits.filter((h) => h.id !== x.id),
+        }));
+
+        if (editingHabitId === x.id) {
+          setEditingHabitId(null);
+          setHabitName('');
+        }
+      };
+
+      if (Platform.OS === 'web') {
+        if (window.confirm('Vuoi eliminare questa abitudine?')) {
+          removeHabit();
+        }
+      } else {
+        Alert.alert(
+          'Elimina abitudine',
+          'Vuoi eliminare questa abitudine?',
+          [
+            { text: 'Annulla', style: 'cancel' },
+            {
+              text: 'Elimina',
+              style: 'destructive',
+              onPress: removeHabit,
+            },
+          ]
+        );
+      }
+    }, true)}
+  </View>
 ))}
 
             {card(
               <>
                 <Text style={styles.cardTitle}>
-                  Nuova abitudine
+                  {editingHabitId !== null
+  ? 'Modifica abitudine'
+  : 'Nuova abitudine'}
                 </Text>
 
                 {field(
@@ -2182,7 +2237,22 @@ const progress =
                   }
                 )}
 
-                {button('+ Aggiungi abitudine', addHabit)}
+                {button(
+  editingHabitId !== null
+    ? 'Salva modifica'
+    : '+ Aggiungi abitudine',
+  addHabit
+)}
+
+{editingHabitId !== null &&
+  button(
+    'Annulla modifica',
+    () => {
+      setEditingHabitId(null);
+      setHabitName('');
+    },
+    true
+  )}
 
                 {button(
                   'Azzera per un nuovo giorno',
