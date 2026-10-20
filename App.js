@@ -249,7 +249,8 @@ const exportBackup = async () => {
             (backup.data.subjects !== undefined &&
               !Array.isArray(backup.data.subjects)) ||
             !backup.data.budgets ||
-            typeof backup.data.budgets !== 'object'
+            typeof backup.data.budgets !== 'object' ||
+            Array.isArray(backup.data.budgets)
           ) {
             throw new Error('Formato backup non valido');
           }
