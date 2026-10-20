@@ -429,6 +429,7 @@ function addTransaction() {
 
 
 
+
 function addHabit() {
   if (!habitName.trim()) return;
 
@@ -446,22 +447,8 @@ function addHabit() {
 
   setHabitName('');
 }
- else {
-    setData((old) => ({
-      ...old,
-      habits: [
-        ...old.habits,
-        {
-          id: String(Date.now()),
-          name: habitName.trim(),
-          done: false,
-        },
-      ],
-    }));
-  }
 
-  setHabitName('');
-}
+
 
 function addEvent() {
   if (!eventTitle.trim() || !eventDate) return;
