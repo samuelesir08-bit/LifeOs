@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AuthScreen from './AuthScreen';
+import { supabase } from './supabase';
 const STORAGE_KEY = 'lifeos-v1';
 const CATEGORIES = [
   'Alimentari',
@@ -109,6 +110,9 @@ const getWeeklyOverview = () => {
   const [editingHabitId, setEditingHabitId] = useState(null);
   const [habitName, setHabitName] = useState('');
   const [ready, setReady] = useState(false);
+  const [session, setSession] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [cloudReady, setCloudReady] = useState(false);
   const [tab, setTab] = useState('Home');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
@@ -138,29 +142,108 @@ const [goalTarget, setGoalTarget] = useState('');
 const [goalSaved, setGoalSaved] = useState('');
   useEffect(() => {
     let active = true;
-
     AsyncStorage.getItem(STORAGE_KEY)
       .then((raw) => {
-        if (active && raw) {
-          const parsed = JSON.parse(raw);
-          setData({ ...INITIAL, ...parsed });
-        }
+        if (active && raw) setData({ ...INITIAL, ...JSON.parse(raw) });
       })
-      .catch((err) => console.warn('Errore caricamento', err))
+      .catch((err) => console.warn('Errore caricamento locale', err))
       .finally(() => {
         if (active) setReady(true);
       });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!active) return;
+      if (error) console.warn('Errore sessione', error.message);
+      setSession(data?.session || null);
+      setAuthReady(true);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, nextSession) => {
+        setSession(nextSession || null);
+        setAuthReady(true);
+        if (!nextSession) setCloudReady(false);
+      }
+    );
 
     return () => {
       active = false;
+      listener.subscription.unsubscribe();
     };
   }, []);
 
   useEffect(() => {
+    if (!ready || !authReady || !session) return;
+    let active = true;
+
+    async function loadCloud() {
+      setCloudReady(false);
+      try {
+        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        const localData = raw ? { ...INITIAL, ...JSON.parse(raw) } : data;
+
+        const { data: row, error } = await supabase
+          .from('lifeos_data')
+          .select('data')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        if (row?.data && typeof row.data === 'object') {
+          if (raw) {
+            await AsyncStorage.setItem(
+              `lifeos-local-backup-${session.user.id}`,
+              raw
+            );
+          }
+          if (active) setData({ ...INITIAL, ...row.data });
+        } else {
+          const { error: saveError } = await supabase
+            .from('lifeos_data')
+            .upsert({
+              user_id: session.user.id,
+              data: localData,
+              updated_at: new Date().toISOString(),
+            });
+          if (saveError) throw saveError;
+          if (active) setData(localData);
+        }
+
+        if (active) setCloudReady(true);
+      } catch (err) {
+        console.warn('Errore caricamento cloud LifeOS', err.message);
+        if (active) setCloudReady(false);
+      }
+    }
+
+    loadCloud();
+    return () => { active = false; };
+  }, [ready, authReady, session?.user?.id]);
+
+  useEffect(() => {
     if (!ready) return;
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data))
-      .catch((err) => console.warn('Errore salvataggio', err));
+      .catch((err) => console.warn('Errore salvataggio locale', err));
   }, [data, ready]);
+
+  useEffect(() => {
+    if (!ready || !session || !cloudReady) return;
+    const timer = setTimeout(async () => {
+      const { error } = await supabase.from('lifeos_data').upsert({
+        user_id: session.user.id,
+        data,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) console.warn('Errore salvataggio cloud', error.message);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [data, ready, session?.user?.id, cloudReady]);
 
 
 const exportBackup = async () => {
@@ -793,10 +876,20 @@ const lifeosCompletion = lifeosTasks.length
     <View style={[styles.card, extraStyle]}>{children}</View>
   );
 
-  if (!ready) {
+  if (!ready || !authReady) {
     return (
       <SafeAreaView style={styles.container}>
         <Text style={styles.muted}>Caricamento LifeOS...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (!session) return <AuthScreen />;
+
+  if (!cloudReady) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Text style={styles.muted}>Collegamento ai dati cloud...</Text>
       </SafeAreaView>
     );
   }
