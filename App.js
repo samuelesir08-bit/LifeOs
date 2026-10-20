@@ -13,6 +13,7 @@ import {
   Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import AuthScreen from './AuthScreen';
 const STORAGE_KEY = 'lifeos-v1';
 const CATEGORIES = [
   'Alimentari',
@@ -24,7 +25,6 @@ const CATEGORIES = [
   'Lavoro',
   'Altro',
 ];
-import AuthScreen from './AuthScreen';
 
 const DEFAULT_BUDGETS = {
   Alimentari: 200,
