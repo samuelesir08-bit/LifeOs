@@ -30,7 +30,13 @@
       "favicon": "./favicon.png"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "LifeOS ha bisogno di accedere al calendario per visualizzare e creare eventi."
+        }
+      ]
     ],
     "extra": {
       "eas": {

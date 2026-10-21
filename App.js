@@ -136,6 +136,10 @@ const [eventDate, setEventDate] = useState('');
 const [eventTime, setEventTime] = useState('');
 const [eventPriority, setEventPriority] = useState('Media');
 const [eventDescription, setEventDescription] = useState('');
+const [appleCalendarEvents, setAppleCalendarEvents] = useState([]);
+const [calendarMessage, setCalendarMessage] = useState('');
+const [calendarLoading, setCalendarLoading] = useState(false);
+const [syncAppleCalendar, setSyncAppleCalendar] = useState(false);
 
 const [budgetInputs, setBudgetInputs] = useState({});
 const [goalName, setGoalName] = useState('');
@@ -550,8 +554,139 @@ function addHabit() {
 
 
 
-function addEvent() {
+async function loadAppleCalendarEvents() {
+  if (Platform.OS === 'web') {
+    setCalendarMessage(
+      'Il sito web non può leggere direttamente il calendario locale. Questa funzione richiede l’app nativa LifeOS.'
+    );
+    return;
+  }
+
+  setCalendarLoading(true);
+  setCalendarMessage('');
+
+  try {
+    const Calendar = await import('expo-calendar');
+    const permission = await Calendar.requestCalendarPermissionsAsync();
+
+    if (permission.status !== 'granted') {
+      setCalendarMessage('Permesso per il calendario non concesso.');
+      return;
+    }
+
+    const calendars = await Calendar.getCalendarsAsync(
+      Calendar.EntityTypes.EVENT
+    );
+
+    const start = new Date();
+    const end = new Date();
+    end.setDate(end.getDate() + 60);
+
+    const results = [];
+
+    for (const calendar of calendars) {
+      const events = await Calendar.getEventsAsync(
+        [calendar.id],
+        start,
+        end
+      );
+
+      for (const event of events) {
+        results.push({
+          id: String(event.id),
+          title: event.title || 'Senza titolo',
+          startDate: event.startDate,
+          calendarTitle: calendar.title || 'Calendario',
+        });
+      }
+    }
+
+    results.sort(
+      (a, b) => new Date(a.startDate) - new Date(b.startDate)
+    );
+
+    setAppleCalendarEvents(results);
+    setCalendarMessage(
+      'Eventi caricati: ' + results.length + ' (prossimi 60 giorni).'
+    );
+  } catch (error) {
+    console.warn('Errore lettura calendario', error);
+    setCalendarMessage(
+      'Impossibile leggere il calendario. Verifica i permessi e la build nativa.'
+    );
+  } finally {
+    setCalendarLoading(false);
+  }
+}
+
+async function createAppleCalendarEvent(event) {
+  if (Platform.OS === 'web') {
+    return {
+      success: false,
+      message: 'La creazione diretta richiede l’app nativa LifeOS.',
+    };
+  }
+
+  try {
+    const Calendar = await import('expo-calendar');
+    const permission = await Calendar.requestCalendarPermissionsAsync();
+
+    if (permission.status !== 'granted') {
+      return {
+        success: false,
+        message: 'Permesso calendario non concesso.',
+      };
+    }
+
+    const calendars = await Calendar.getCalendarsAsync(
+      Calendar.EntityTypes.EVENT
+    );
+
+    const target = calendars.find((calendar) => calendar.allowsModifications);
+
+    if (!target) {
+      return {
+        success: false,
+        message: 'Non è disponibile un calendario modificabile.',
+      };
+    }
+
+    const startDate = new Date(`${event.date}T${event.time || '09:00'}:00`);
+    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+
+    await Calendar.createEventAsync(target.id, {
+      title: event.title,
+      notes: event.description || '',
+      startDate,
+      endDate,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    });
+
+    return { success: true, message: 'Evento aggiunto al calendario del dispositivo.' };
+  } catch (error) {
+    console.warn('Errore creazione evento calendario', error);
+    return {
+      success: false,
+      message: 'Impossibile creare l’evento nel calendario del dispositivo.',
+    };
+  }
+}
+
+async function addEvent() {
   if (!eventTitle.trim() || !eventDate) return;
+
+  const newEvent = {
+    title: eventTitle.trim(),
+    date: eventDate,
+    time: eventTime,
+    priority: eventPriority,
+    description: eventDescription.trim(),
+  };
+
+  let appleResult = null;
+  if (syncAppleCalendar) {
+    appleResult = await createAppleCalendarEvent(newEvent);
+  }
 
   setData((old) => ({
     ...old,
@@ -578,6 +713,13 @@ function addEvent() {
   setEventTime('');
   setEventPriority('Media');
   setEventDescription('');
+  setSyncAppleCalendar(false);
+
+  if (appleResult && !appleResult.success) {
+    setCalendarMessage(appleResult.message);
+  } else if (appleResult && appleResult.success) {
+    setCalendarMessage(appleResult.message);
+  }
 }
 function addSubject() {
   const cfu = Number(subjectCfu);
@@ -1331,8 +1473,38 @@ const lifeosCompletion = lifeosTasks.length
   ))}
 </View>
 
-    {button('Aggiungi evento', addEvent)}
+    <Pressable
+  style={[styles.button, styles.buttonSecondary]}
+  onPress={() => setSyncAppleCalendar((value) => !value)}
+>
+  <Text style={styles.buttonText}>
+    {syncAppleCalendar ? '✓ Salva anche nel calendario Apple' : 'Salva anche nel calendario Apple'}
+  </Text>
+</Pressable>
+{button('Aggiungi evento', addEvent)}
   </>)}
+
+{card(<>
+  {heading('Calendario Apple')}
+  <Text style={styles.muted}>
+    Visualizza gli eventi del calendario del dispositivo senza modificare quelli salvati in LifeOS.
+  </Text>
+  {button(
+    calendarLoading ? 'Caricamento...' : 'Autorizza e carica eventi',
+    loadAppleCalendarEvents
+  )}
+  {!!calendarMessage && (
+    <Text style={styles.muted}>{calendarMessage}</Text>
+  )}
+  {appleCalendarEvents.slice(0, 30).map((event) => (
+    <View key={event.id} style={styles.separator}>
+      <Text style={styles.itemText}>{event.title}</Text>
+      <Text style={styles.muted}>
+        {new Date(event.startDate).toLocaleString('it-IT')} · {event.calendarTitle}
+      </Text>
+    </View>
+  ))}
+</>)}
 
 {heading('Scadenze e priorità')}
 
