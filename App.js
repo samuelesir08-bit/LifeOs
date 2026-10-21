@@ -113,6 +113,7 @@ const getWeeklyOverview = () => {
   const [session, setSession] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [cloudReady, setCloudReady] = useState(false);
+  const [accountMessage, setAccountMessage] = useState('');
   const [tab, setTab] = useState('Home');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
@@ -911,9 +912,19 @@ const lifeosCompletion = lifeosTasks.length
           </Text>
         </View>
 
-        <View style={styles.avatar}>
-          <Text style={styles.purple}>L</Text>
-        </View>
+        <Pressable
+          style={styles.avatar}
+          onPress={() => {
+            setAccountMessage('');
+            setTab('Account');
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Apri Account"
+        >
+          <Text style={styles.purple}>
+            {(session?.user?.email || 'L').charAt(0).toUpperCase()}
+          </Text>
+        </Pressable>
       </View>
 
       <ScrollView
@@ -2364,6 +2375,57 @@ const progress =
               </>
             )}
           </>
+        )}
+
+        {tab === 'Account' && (
+          <View>
+            <Text style={styles.heading}>Il tuo account</Text>
+            <Text style={styles.muted}>
+              Gestisci il tuo accesso a LifeOS.
+            </Text>
+
+            <View style={styles.card}>
+              <Text style={styles.eyebrow}>ACCOUNT CONNESSO</Text>
+              <Text style={styles.cardTitle}>Email</Text>
+              <Text style={styles.itemText}>
+                {session?.user?.email || 'Email non disponibile'}
+              </Text>
+
+              <View style={styles.separator} />
+
+              <Text style={styles.cardTitle}>Stato</Text>
+              <Text style={styles.green}>Connesso a LifeOS</Text>
+              <Text style={styles.muted}>
+                I dati dell'app sono associati al tuo account.
+              </Text>
+
+              {!!accountMessage && (
+                <Text style={styles.red}>{accountMessage}</Text>
+              )}
+
+              <Pressable
+                style={[styles.button, styles.buttonSecondary]}
+                onPress={() => setTab('Home')}
+              >
+                <Text style={styles.buttonText}>Torna alla Home</Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.button, { backgroundColor: '#8B3547' }]}
+                onPress={async () => {
+                  setAccountMessage('');
+                  const { error } = await supabase.auth.signOut();
+                  if (error) {
+                    setAccountMessage(
+                      'Impossibile uscire: ' + error.message
+                    );
+                  }
+                }}
+              >
+                <Text style={styles.buttonText}>Esci da LifeOS</Text>
+              </Pressable>
+            </View>
+          </View>
         )}
 
         <Text style={styles.footer}>
