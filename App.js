@@ -114,6 +114,8 @@ const getWeeklyOverview = () => {
 };
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMoreNav, setShowMoreNav] = useState(false);
+  const [activeForm, setActiveForm] = useState(null);
+  const [showBudgetEditor, setShowBudgetEditor] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const dateInDays = (days) => { const next = new Date(currentDate); next.setDate(next.getDate() + days); return localDateKey(next); };
   useEffect(() => { const timer = setInterval(() => setCurrentDate(new Date()), 30000); return () => clearInterval(timer); }, []);
@@ -144,6 +146,10 @@ const getWeeklyOverview = () => {
   const [localDataReadyUserId, setLocalDataReadyUserId] = useState(null);
   const [accountMessage, setAccountMessage] = useState('');
   const [tab, setTab] = useState('Home');
+  useEffect(() => {
+    setActiveForm(null);
+    setShowBudgetEditor(false);
+  }, [tab]);
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [kind, setKind] = useState('expense');
@@ -613,6 +619,7 @@ function addTransaction() {
 
   setDescription('');
   setAmount('');
+  setActiveForm(null);
 }
 
 
@@ -642,6 +649,7 @@ function addTransaction() {
   setTaskName('');
   setTaskPriority('Media');
   setTaskDueDate('');
+  setActiveForm(null);
 }
 
 
@@ -677,6 +685,7 @@ function addHabit() {
   }
 
   setHabitName('');
+  setActiveForm(null);
 }
 
 
@@ -841,6 +850,7 @@ async function addEvent() {
   setEventPriority('Media');
   setEventDescription('');
   setSyncAppleCalendar(false);
+  setActiveForm(null);
 
   if (appleResult && !appleResult.success) {
     setCalendarMessage(appleResult.message);
@@ -870,6 +880,7 @@ function addSubject() {
   setSubjectName('');
   setSubjectCfu('');
   setSubjectExamDate('');
+  setActiveForm(null);
 }
 
 function deleteSubject(id) {
@@ -943,6 +954,7 @@ function addGoal() {
   setGoalName('');
   setGoalTarget('');
   setGoalSaved('');
+  setActiveForm(null);
 }
 
 function updateGoalProgress(id, value) {
@@ -983,6 +995,7 @@ function addProject() {
   setProjectAction('');
   setProjectDate('');
   setProjectPriority('Media');
+  setActiveForm(null);
 }
 
 function updateProjectStatus(id, status) {
@@ -1377,8 +1390,9 @@ const lifeosCompletion = lifeosTasks.length
   <Text style={styles.muted}>
     Organizza eventi, esami e appuntamenti.
   </Text>
+  {button(activeForm === 'event' ? 'Chiudi' : '+ Nuovo evento', () => setActiveForm(activeForm === 'event' ? null : 'event'), true)}
 
-  {card(<>
+  {activeForm === 'event' && card(<>
     {heading('Nuovo evento')}
     {field('Titolo evento', eventTitle, setEventTitle)}
     {field('Descrizione (facoltativa)', eventDescription, setEventDescription)}
@@ -1579,8 +1593,9 @@ const lifeosCompletion = lifeosTasks.length
   <Text style={styles.muted}>
     Gestisci materie, esami e tempo dedicato alla preparazione.
   </Text>
+  {button(activeForm === 'subject' ? 'Chiudi' : '+ Aggiungi materia', () => setActiveForm(activeForm === 'subject' ? null : 'subject'), true)}
 
-  {card(<>
+  {activeForm === 'subject' && card(<>
     {heading('Aggiungi materia')}
     {field('Nome materia', subjectName, setSubjectName)}
     {field('CFU', subjectCfu, setSubjectCfu, {
@@ -1636,22 +1651,12 @@ const lifeosCompletion = lifeosTasks.length
             {(subject.minutes || 0) % 60} min
           </Text>
 
-          {field(
-            'Minuti della sessione',
-            studyMinutes,
-            setStudyMinutes,
-            { keyboardType: 'numeric' }
-          )}
-          {button(
-            'Registra sessione',
-            () => addStudySession(subject.id),
-            true
-          )}
-          {button(
-            'Elimina materia',
-            () => deleteSubject(subject.id),
-            true
-          )}
+          {button(activeForm === `study:${subject.id}` ? 'Chiudi gestione' : 'Registra sessione / Gestisci', () => setActiveForm(activeForm === `study:${subject.id}` ? null : `study:${subject.id}`), true)}
+          {activeForm === `study:${subject.id}` && <>
+            {field('Minuti della sessione', studyMinutes, setStudyMinutes, { keyboardType: 'numeric' })}
+            {button('Registra sessione', () => addStudySession(subject.id), true)}
+            {button('Elimina materia', () => deleteSubject(subject.id), true)}
+          </>}
         </View>
       ))
   }
@@ -1662,6 +1667,7 @@ const lifeosCompletion = lifeosTasks.length
         {tab === 'Soldi' && (
           <>
             {heading('Le tue finanze')}
+            {button(activeForm === 'transaction' ? 'Chiudi' : '+ Nuova operazione', () => setActiveForm(activeForm === 'transaction' ? null : 'transaction'), true)}
 
             {card(
               <>
@@ -1683,7 +1689,7 @@ const lifeosCompletion = lifeosTasks.length
               </>
             )}
 
-            {card(
+            {activeForm === 'transaction' && card(
               <>
                 <Text style={styles.cardTitle}>
                   Nuova operazione
@@ -1765,6 +1771,7 @@ const lifeosCompletion = lifeosTasks.length
 )}
 
 {heading('Budget per categoria')}
+{button(showBudgetEditor ? 'Chiudi modifica budget' : 'Modifica budget', () => setShowBudgetEditor((value) => !value), true)}
 
 {CATEGORIES.map((item) => {
   const spent = monthlyTransactions
@@ -1815,6 +1822,7 @@ const lifeosCompletion = lifeosTasks.length
           : `Disponibili ${euro(remaining)}`}
       </Text>
 
+      {showBudgetEditor && <>
       <Text style={styles.muted}>Imposta budget mensile (€)</Text>
 
       <TextInput
@@ -1866,6 +1874,7 @@ const lifeosCompletion = lifeosTasks.length
       >
         <Text style={styles.buttonText}>Salva budget</Text>
       </Pressable>
+      </>}
     </View>
   );
 })}
@@ -2102,8 +2111,9 @@ const lifeosCompletion = lifeosTasks.length
 {tab === 'Obiettivi' && (
   <>
     {heading('I tuoi obiettivi')}
+    {button(activeForm === 'goal' ? 'Chiudi' : '+ Nuovo obiettivo', () => setActiveForm(activeForm === 'goal' ? null : 'goal'), true)}
 
-    {card(
+    {activeForm === 'goal' && card(
       <>
         <Text style={styles.cardTitle}>
           Crea un obiettivo di risparmio
@@ -2167,12 +2177,8 @@ const progress =
     : `Ti mancano ${euro(Math.max(0, target - saved))}`}
 </Text>
 
-              {field(
-                'Aggiorna il risparmio totale (€)',
-                String(goal.saved),
-                (value) => updateGoalProgress(goal.id, value),
-                { keyboardType: 'decimal-pad' }
-              )}
+              {button(activeForm === `goal-progress:${goal.id}` ? 'Chiudi' : 'Aggiorna risparmio', () => setActiveForm(activeForm === `goal-progress:${goal.id}` ? null : `goal-progress:${goal.id}`), true)}
+              {activeForm === `goal-progress:${goal.id}` && field('Nuovo risparmio totale (€)', String(goal.saved), (value) => updateGoalProgress(goal.id, value), { keyboardType: 'decimal-pad' })}
             </View>
           );
         })}
@@ -2184,8 +2190,9 @@ const progress =
   <Text style={styles.muted}>
     Trasforma le idee in azioni concrete.
   </Text>
+  {button(activeForm === 'project' ? 'Chiudi' : '+ Nuovo progetto', () => setActiveForm(activeForm === 'project' ? null : 'project'), true)}
 
-  {card(<>
+  {activeForm === 'project' && card(<>
     {heading('Nuovo progetto')}
     {field('Nome del progetto', projectName, setProjectName)}
     {field('Descrizione', projectDescription, setProjectDescription)}
@@ -2257,6 +2264,8 @@ const progress =
             Stato: {project.status}
           </Text>
 
+          {button(activeForm === `project-actions:${project.id}` ? 'Chiudi gestione' : 'Gestisci progetto', () => setActiveForm(activeForm === `project-actions:${project.id}` ? null : `project-actions:${project.id}`), true)}
+          {activeForm === `project-actions:${project.id}` && <>
           <View style={styles.row}>
             {button(
               'Da iniziare',
@@ -2280,6 +2289,7 @@ const progress =
             () => deleteProject(project.id),
             true
           )}
+          </>}
         </View>
       ))
   }
@@ -2288,8 +2298,9 @@ const progress =
         {tab === 'Attività' && (
           <>
             {heading('Le tue attività')}
+            {button(activeForm === 'task' ? 'Chiudi' : '+ Nuova attività', () => setActiveForm(activeForm === 'task' ? null : 'task'), true)}
 
-            {card(
+            {activeForm === 'task' && card(
               <>
                 <Text style={styles.cardTitle}>
                   Cosa devi fare?
@@ -2361,7 +2372,7 @@ const progress =
             {visibleTasks.length === 0
               ? card(
                   <Text style={styles.muted}>
-                    Nessuna attività in questa vista. Aggiungi un’attività o cambia filtro.
+                    Nessuna attività in questa vista. Usa «Nuova attività» per crearne una.
                   </Text>
                 )
               : visibleTasks.map((x) => (
@@ -2407,6 +2418,7 @@ const progress =
         {tab === 'Abitudini' && (
           <>
             {heading('Le tue abitudini')}
+            {button(activeForm === 'habit-form' ? 'Chiudi' : '+ Nuova abitudine', () => { setEditingHabitId(null); setHabitName(''); setActiveForm(activeForm === 'habit-form' ? null : 'habit-form'); }, true)}
 
             {card(
               <>
@@ -2461,9 +2473,12 @@ const progress =
       </Text>
     </Pressable>
 
+    {button(activeForm === `habit-actions:${x.id}` ? 'Chiudi' : 'Gestisci', () => setActiveForm(activeForm === `habit-actions:${x.id}` ? null : `habit-actions:${x.id}`), true)}
+    {activeForm === `habit-actions:${x.id}` && <>
     {button('Modifica', () => {
       setHabitName(x.name);
       setEditingHabitId(x.id);
+      setActiveForm('habit-form');
     }, true)}
 
     {button('Elimina', () => {
@@ -2498,11 +2513,12 @@ const progress =
         );
       }
     }, true)}
+    </>}
   </View>
   );
 })}
 
-            {card(
+            {activeForm === 'habit-form' && card(
               <>
                 <Text style={styles.cardTitle}>
                   {editingHabitId !== null
@@ -2533,6 +2549,7 @@ const progress =
     () => {
       setEditingHabitId(null);
       setHabitName('');
+      setActiveForm(null);
     },
     true
   )}
