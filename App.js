@@ -1252,334 +1252,117 @@ const lifeosCompletion = lifeosTasks.length
           <>
             <View style={styles.hero}>
               <Text style={styles.eyebrow}>
-                IL TUO SPAZIO PERSONALE
+                {currentDate.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}
               </Text>
               <Text style={styles.heroTitle}>
-                Prendi il controllo.
+                {currentDate.getHours() < 12 ? 'Buongiorno.' : currentDate.getHours() < 18 ? 'Buon pomeriggio.' : 'Buonasera.'}
               </Text>
-              <Text style={styles.heroSub}>
-                Un passo alla volta, ogni giorno.
-              </Text>
-              <Text style={styles.balanceLabel}>
-                Saldo registrato
-              </Text>
-              <Text style={styles.balance}>
-                {euro(balance)}
-              </Text>
-              <Text style={styles.heroSub}>
-                Calcolato sulle operazioni inserite
-              </Text>
+              <Text style={styles.heroSub}>Ecco cosa merita la tua attenzione oggi.</Text>
+              <Text style={styles.balanceLabel}>SALDO REGISTRATO</Text>
+              <Text style={styles.balance}>{euro(balance)}</Text>
+              <Text style={styles.heroSub}>Entrate meno uscite che hai registrato</Text>
             </View>
 
             <View style={styles.row}>
               {card(
                 <>
-                  <Text style={styles.muted}>ENTRATE</Text>
-                  <Text style={styles.green}>{euro(income)}</Text>
+                  <Text style={styles.muted}>ATTIVITÀ APERTE</Text>
+                  <Text style={styles.big}>{lifeosOpenTasks.length}</Text>
+                  <Text style={styles.muted}>{lifeosTodayTasks.length} previste oggi</Text>
                 </>,
                 styles.half
               )}
               {card(
                 <>
-                  <Text style={styles.muted}>USCITE</Text>
-                  <Text style={styles.red}>{euro(expenses)}</Text>
-                </>,
-                styles.half
-              )}
-            </View>
-<View style={styles.card}>
-  {heading('La settimana in arrivo')}
-
-  <Text style={styles.itemText}>
-    {getWeeklyOverview().upcoming.length} impegni nei prossimi 7 giorni
-  </Text>
-
-  <Text style={styles.muted}>
-    {getWeeklyOverview().overdue.length} scadenze arretrate
-  </Text>
-
-  <Text style={styles.muted}>
-    {getWeeklyOverview().highPriority.length} impegni con priorità alta
-  </Text>
-
-  {getWeeklyOverview().overdue.length > 0 && (
-    <Text style={styles.red}>
-      Da recuperare: {getWeeklyOverview().overdue[0].title}
-    </Text>
-  )}
-
-  {getWeeklyOverview().upcoming.slice(0, 3).map((event) => (
-    <View key={event.id} style={{ marginTop: 10 }}>
-      <Text style={styles.itemText}>{event.title}</Text>
-      <Text style={styles.muted}>
-        {event.date}
-        {event.time ? ` · ${event.time}` : ''}
-      </Text>
-    </View>
-  ))}
-
-  {button('Apri calendario', () => setTab('Calendario'), true)}
-</View>
-            {heading('La tua giornata')}
-
-            <View style={styles.row}>
-              {card(
-                <>
-                  <Text style={styles.big}>
-                    {doneTasks}/{data.tasks.length}
-                  </Text>
-                  <Text style={styles.muted}>
-                    Attività completate
-                  </Text>
-                </>,
-                styles.half
-              )}
-
-              {card(
-                <>
-                  <Text style={styles.big}>
-                    {doneHabits}/{data.habits.length}
-                  </Text>
-                  <Text style={styles.muted}>
-                    Abitudini completate
-                  </Text>
+                  <Text style={styles.muted}>ABITUDINI DI OGGI</Text>
+                  <Text style={styles.big}>{doneHabits}/{data.habits.length}</Text>
+                  <Text style={styles.muted}>Completate</Text>
                 </>,
                 styles.half
               )}
             </View>
 
-{button(
-  `Promemoria (${notifications.length})`,
-  () => setShowNotifications((value) => !value),
-  true
-)}
+            {card(
+              <>
+                <Text style={styles.cardTitle}>Cattura veloce</Text>
+                {field('Aggiungi un’attività da ricordare…', taskName, setTaskName, {
+                  returnKeyType: 'done',
+                  onSubmitEditing: addTask,
+                })}
+                {button('+ Aggiungi alla lista', addTask)}
+              </>
+            )}
 
-{showNotifications && (
-  <View style={styles.card}>
-    {heading('Promemoria e scadenze')}
-    {notifications.length === 0 ? (
-      <Text style={styles.muted}>Non ci sono promemoria aperti.</Text>
-    ) : (
-      notifications.map((item) => (
-        <View key={item.id} style={{ marginBottom: 12 }}>
-          <Text style={styles.itemText}>{item.title}</Text>
-          <Text style={styles.muted}>{item.detail}</Text>
-          <Text style={item.priority === 'Alta' ? styles.red : styles.muted}>
-            {item.type} · Priorità {item.priority}
-          </Text>
-        </View>
-      ))
-    )}
-  </View>
-)}
-<View style={styles.card}>
-  {heading('La tua giornata')}
+            {heading('La tua priorità')}
+            {card(
+              <>
+                <Text style={styles.eyebrow}>PROSSIMA AZIONE CONSIGLIATA</Text>
+                <Text style={styles.cardTitle}>{lifeosNextAction.title}</Text>
+                <Text style={styles.muted}>{lifeosNextAction.detail}</Text>
+                {button('Apri sezione', () => setTab(lifeosNextAction.section))}
+              </>
+            )}
 
-  <View style={styles.row}>
-    <View style={{ flex: 1 }}>
-      <Text style={styles.muted}>Attività aperte</Text>
-      <Text style={styles.title}>{lifeosOpenTasks.length}</Text>
-    </View>
+            {heading('In programma oggi')}
+            {card(
+              <>
+                {lifeosTodayTasks.length === 0 && lifeosTodayEvents.length === 0 ? (
+                  <Text style={styles.muted}>Nessun impegno datato per oggi. Puoi goderti lo spazio o pianificare il prossimo passo.</Text>
+                ) : (
+                  <>
+                    {lifeosTodayTasks.slice(0, 4).map((task) => (
+                      <Pressable key={task.id} style={styles.listItem} onPress={() => toggleTask(task.id)}>
+                        <Text style={styles.check}>○</Text>
+                        <View style={styles.flex}>
+                          <Text style={styles.itemText}>{task.name}</Text>
+                          <Text style={styles.muted}>Attività · {task.priority || 'Media'}</Text>
+                        </View>
+                      </Pressable>
+                    ))}
+                    {lifeosTodayEvents.slice(0, 4).map((event) => (
+                      <View key={event.id} style={styles.listItem}>
+                        <Text style={styles.quickIcon}>◷</Text>
+                        <View style={styles.flex}>
+                          <Text style={styles.itemText}>{event.title}</Text>
+                          <Text style={styles.muted}>{event.time || 'Orario da definire'} · Evento</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </>
+                )}
+                {button('Apri agenda', () => setTab('Calendario'), true)}
+              </>
+            )}
 
-    <View style={{ flex: 1 }}>
-      <Text style={styles.muted}>Attività oggi</Text>
-      <Text style={styles.title}>{lifeosTodayTasks.length}</Text>
-    </View>
-
-    <View style={{ flex: 1 }}>
-      <Text style={styles.muted}>Progetti attivi</Text>
-      <Text style={styles.title}>{lifeosActiveProjects.length}</Text>
-    </View>
-  </View>
-
-  <View style={{ marginTop: 18 }}>
-    <View style={styles.row}>
-      <Text style={styles.itemText}>Completamento attività</Text>
-      <Text style={styles.itemText}>{lifeosCompletion}%</Text>
-    </View>
-
-    <View
-      style={{
-        height: 8,
-        backgroundColor: '#E5E7EB',
-        borderRadius: 8,
-        overflow: 'hidden',
-        marginTop: 8,
-      }}
-    >
-      <View
-        style={{
-          width: `${lifeosCompletion}%`,
-          height: 8,
-          backgroundColor: '#16A34A',
-          borderRadius: 8,
-        }}
-      />
-    </View>
-  </View>
-
-  {(lifeosOverdueEvents.length > 0 || lifeosOverdueTasks.length > 0) && (
-    <View style={{ marginTop: 16 }}>
-      <Text style={styles.red}>
-        Da recuperare: {lifeosOverdueTasks.length} attività e {lifeosOverdueEvents.length} scadenze
-      </Text>
-    </View>
-  )}
-</View>
-
-<View style={styles.card}>
-  {heading('Priorità suggerita')}
-
-  <Text style={styles.itemText}>{lifeosNextAction.title}</Text>
-  <Text style={styles.muted}>{lifeosNextAction.detail}</Text>
-
-  {button(
-    `Apri ${lifeosNextAction.section}`,
-    () => setTab(lifeosNextAction.section)
-  )}
-</View>
-
-<View style={styles.card}>
-  {heading('Scadenze urgenti')}
-
-  {lifeosUrgentEvents.length === 0 ? (
-    <Text style={styles.muted}>
-      Nessuna scadenza urgente individuata.
-    </Text>
-  ) : (
-    lifeosUrgentEvents.slice(0, 3).map((event) => (
-      <View key={event.id} style={{ marginBottom: 12 }}>
-        <Text style={styles.itemText}>{event.title}</Text>
-        <Text style={styles.muted}>
-          {event.date} · {event.priority || 'Media'}
-        </Text>
-      </View>
-    ))
-  )}
-</View>
-<View style={styles.card}>
-  {heading('Le tue attività')}
-
-  <View style={styles.row}>
-    <Text style={styles.muted}>Da completare</Text>
-    <Text style={styles.itemText}>
-      {(data.tasks || []).filter((task) => !task.done).length}
-    </Text>
-  </View>
-
-  <View style={styles.row}>
-    <Text style={styles.muted}>Completate</Text>
-    <Text style={styles.green}>
-      {(data.tasks || []).filter((task) => task.done).length}
-    </Text>
-  </View>
-
-  <View style={{ marginTop: 12 }}>
-    <Text style={styles.muted}>
-      Avanzamento complessivo
-    </Text>
-
-    <View
-      style={{
-        height: 8,
-        backgroundColor: '#E5E7EB',
-        borderRadius: 8,
-        overflow: 'hidden',
-        marginTop: 6,
-      }}
-    >
-      <View
-        style={{
-          height: 8,
-          width: `${
-            (data.tasks || []).length
-              ? Math.round(
-                  ((data.tasks || []).filter((task) => task.done).length /
-                    (data.tasks || []).length) *
-                    100
-                )
-              : 0
-          }%`,
-          backgroundColor: '#16A34A',
-          borderRadius: 8,
-        }}
-      />
-    </View>
-  </View>
-
-  {button('Apri le attività', () => setTab('Attività'), true)}
-</View>
-{heading('Il tuo prossimo passo')}
-
-{card(<>
-  <Text style={styles.itemText}>Attività da completare</Text>
-  <Text style={styles.big}>
-    {data.tasks.filter((task) => !task.done).length}
-  </Text>
-  <Text style={styles.muted}>
-    Attività ancora aperte
-  </Text>
-</>)}
-
-{card(<>
-  <Text style={styles.itemText}>Progetti in corso</Text>
-  <Text style={styles.big}>
-    {(data.projects || []).filter(
-      (project) => project.status === 'In corso'
-    ).length}
-  </Text>
-  <Text style={styles.muted}>
-    Progetti che richiedono attenzione
-  </Text>
-</>)}
-
-{card(<>
-  <Text style={styles.itemText}>Prossime scadenze</Text>
-  {(data.events || [])
-    .filter((event) => !event.done)
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(0, 3)
-    .map((event) => (
-      <View key={event.id} style={{ marginTop: 8 }}>
-        <Text style={styles.itemText}>{event.title}</Text>
-        <Text style={styles.muted}>
-          {event.date}{event.time ? ` · ${event.time}` : ''}
-        </Text>
-      </View>
-    ))}
-  {(data.events || []).filter((event) => !event.done).length === 0 && (
-    <Text style={styles.muted}>Nessuna scadenza aperta.</Text>
-  )}
-</>)}
-
-{card(<>
-  <Text style={styles.itemText}>Studio universitario</Text>
-  <Text style={styles.big}>
-    {Math.round(
-      (data.subjects || []).reduce(
-        (total, subject) => total + (subject.minutes || 0),
-        0
-      ) / 60 * 10
-    ) / 10} h
-  </Text>
-  <Text style={styles.muted}>Ore registrate complessivamente</Text>
-</>)}
+            {heading('La tua routine')}
+            {card(
+              <>
+                <View style={styles.row}>
+                  <Text style={[styles.cardTitle, styles.flex]}>Abitudini di oggi</Text>
+                  <Text style={styles.muted}>{data.habits.length ? Math.round(doneHabits / data.habits.length * 100) : 0}%</Text>
+                </View>
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${data.habits.length ? doneHabits / data.habits.length * 100 : 0}%` }]} />
+                </View>
+                {data.habits.slice(0, 5).map((habit) => (
+                  <Pressable key={habit.id} style={styles.listItem} onPress={() => toggleHabit(habit.id)}>
+                    <Text style={styles.check}>{isHabitDoneToday(habit) ? '☑' : '☐'}</Text>
+                    <Text style={[styles.itemText, styles.flex, isHabitDoneToday(habit) && styles.done]}>{habit.name}</Text>
+                    <Text style={styles.streak}>🔥 {getHabitStreak(habit)}</Text>
+                  </Pressable>
+                ))}
+                {button('Gestisci abitudini', () => setTab('Abitudini'), true)}
+              </>
+            )}
 
             {heading('Accesso rapido')}
-
             {[
-              ['€', 'Gestisci i soldi', 'Soldi'],
-              ['✓', 'Organizza le attività', 'Attività'],
-              ['◉', 'Monitora le abitudini', 'Abitudini'],
-              ['▦', 'Gestisci le scadenze', 'Calendario'],
-['📚', 'Vai allo studio', 'Studio'],
-['🚀', 'Gestisci i progetti', 'Progetti'],
-            ].map(([icon, label, dest]) => (
-              <Pressable
-                key={dest}
-                style={styles.quick}
-                onPress={() => setTab(dest)}
-              >
+              ['€', 'Finanze', 'Soldi'],
+              ['▥', 'Analisi', 'Analisi'],
+              ['◎', 'Obiettivi', 'Obiettivi'],
+              ['📚', 'Studio', 'Studio'],
+            ].map(([icon, label, destination]) => (
+              <Pressable key={destination} style={styles.quick} onPress={() => setTab(destination)}>
                 <Text style={styles.quickIcon}>{icon}</Text>
                 <Text style={styles.itemText}>{label}</Text>
                 <Text style={styles.arrow}>›</Text>
@@ -1588,7 +1371,7 @@ const lifeosCompletion = lifeosTasks.length
           </>
         )}
 
-{tab === 'Calendario' && <>
+        {tab === 'Calendario' && <>
   {heading('Calendario e scadenze')}
   <Text style={styles.muted}>
     Organizza eventi, esami e appuntamenti.
