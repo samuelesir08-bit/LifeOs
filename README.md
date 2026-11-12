@@ -39,7 +39,7 @@ The app expects these columns:
 - `data` (JSONB document)
 - `updated_at` (timestamp)
 
-Cloud outages do not block access to the local copy. The Account screen exposes the current sync status and a retry action.
+Cloud outages do not block access to the local copy. Local snapshots are namespaced by authenticated account; the first signed-in account safely claims the legacy unscoped snapshot during upgrade, while later account switches never reuse another user's local data. The Account screen exposes the current sync status and a retry action.
 
 ## Web deployment
 

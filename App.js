@@ -16,6 +16,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import AuthScreen from './AuthScreen';
 import { supabase } from './supabase';
 const STORAGE_KEY = 'lifeos-v1';
+const LOCAL_OWNER_KEY = 'lifeos-local-owner';
 const CATEGORIES = [
   'Alimentari',
   'Trasporti',
@@ -123,6 +124,7 @@ const getWeeklyOverview = () => {
   const [cloudAvailable, setCloudAvailable] = useState(false);
   const [cloudError, setCloudError] = useState('');
   const [cloudRetry, setCloudRetry] = useState(0);
+  const [localDataReadyUserId, setLocalDataReadyUserId] = useState(null);
   const [accountMessage, setAccountMessage] = useState('');
   const [tab, setTab] = useState('Home');
   const [description, setDescription] = useState('');
@@ -186,6 +188,7 @@ const [goalSaved, setGoalSaved] = useState('');
         if (!nextSession) {
           setCloudReady(false);
           setCloudAvailable(false);
+          setLocalDataReadyUserId(null);
           setCloudError('');
         }
       }
@@ -218,10 +221,32 @@ const [goalSaved, setGoalSaved] = useState('');
     async function loadCloud() {
       setCloudReady(false);
       setCloudAvailable(false);
+      setLocalDataReadyUserId(null);
       setCloudError('');
+      let localData = INITIAL;
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        const localData = raw ? { ...INITIAL, ...JSON.parse(raw) } : data;
+        const scopedStorageKey = `${STORAGE_KEY}:${session.user.id}`;
+        const currentOwnerId = await AsyncStorage.getItem(LOCAL_OWNER_KEY);
+        let raw = null;
+
+        if (currentOwnerId === session.user.id) {
+          raw = await AsyncStorage.getItem(scopedStorageKey);
+        } else if (!currentOwnerId) {
+          // One-time migration: assign the old unscoped local snapshot to the
+          // first authenticated account that opens this upgraded app.
+          raw = await AsyncStorage.getItem(STORAGE_KEY);
+          if (raw) {
+            await AsyncStorage.setItem(scopedStorageKey, raw);
+          }
+          await AsyncStorage.setItem(LOCAL_OWNER_KEY, session.user.id);
+        } else {
+          // A different account is signing in on this device. Never reuse the
+          // previous account's local snapshot.
+          raw = await AsyncStorage.getItem(scopedStorageKey);
+          await AsyncStorage.setItem(LOCAL_OWNER_KEY, session.user.id);
+        }
+
+        localData = raw ? { ...INITIAL, ...JSON.parse(raw) } : INITIAL;
 
         const { data: row, error } = await supabase
           .from('lifeos_data')
@@ -253,15 +278,18 @@ const [goalSaved, setGoalSaved] = useState('');
         }
 
         if (active) {
+          setLocalDataReadyUserId(session.user.id);
           setCloudAvailable(true);
           setCloudReady(true);
         }
       } catch (err) {
         console.warn('Errore caricamento cloud LifeOS', err.message);
         if (active) {
-          // Cloud outages must not lock the user out of their local data.
+          // Cloud outages must not lock the user out of this account's local data.
+          setData(localData);
+          setLocalDataReadyUserId(session.user.id);
           setCloudAvailable(false);
-          setCloudError('Cloud non raggiungibile: puoi continuare a usare i dati salvati su questo dispositivo. Riprova la sincronizzazione quando il servizio torna disponibile.');
+          setCloudError('Cloud non raggiungibile: puoi continuare a usare i dati salvati su questo account e dispositivo. Riprova la sincronizzazione quando il servizio torna disponibile.');
           setCloudReady(true);
         }
       }
@@ -272,13 +300,14 @@ const [goalSaved, setGoalSaved] = useState('');
   }, [ready, authReady, session?.user?.id, cloudRetry]);
 
   useEffect(() => {
-    if (!ready) return;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    if (!ready || !session?.user?.id || localDataReadyUserId !== session.user.id) return;
+    const scopedStorageKey = `${STORAGE_KEY}:${session.user.id}`;
+    AsyncStorage.setItem(scopedStorageKey, JSON.stringify(data))
       .catch((err) => console.warn('Errore salvataggio locale', err));
-  }, [data, ready]);
+  }, [data, ready, session?.user?.id, localDataReadyUserId]);
 
   useEffect(() => {
-    if (!ready || !session || !cloudReady || !cloudAvailable || !supabase) return;
+    if (!ready || !session || !cloudReady || !cloudAvailable || !supabase || localDataReadyUserId !== session.user.id) return;
     const timer = setTimeout(async () => {
       try {
         const { error } = await supabase.from('lifeos_data').upsert({
@@ -296,7 +325,7 @@ const [goalSaved, setGoalSaved] = useState('');
     }, 700);
 
     return () => clearTimeout(timer);
-  }, [data, ready, session?.user?.id, cloudReady, cloudAvailable]);
+  }, [data, ready, session?.user?.id, cloudReady, cloudAvailable, localDataReadyUserId]);
 
 
 const exportBackup = async () => {
