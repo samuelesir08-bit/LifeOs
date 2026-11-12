@@ -113,6 +113,9 @@ const getWeeklyOverview = () => {
   const [session, setSession] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [cloudReady, setCloudReady] = useState(false);
+  const [cloudAvailable, setCloudAvailable] = useState(false);
+  const [cloudError, setCloudError] = useState('');
+  const [cloudRetry, setCloudRetry] = useState(0);
   const [accountMessage, setAccountMessage] = useState('');
   const [tab, setTab] = useState('Home');
   const [description, setDescription] = useState('');
@@ -160,20 +163,38 @@ const [goalSaved, setGoalSaved] = useState('');
 
   useEffect(() => {
     let active = true;
-    supabase.auth.getSession().then(({ data, error }) => {
-      if (!active) return;
-      if (error) console.warn('Errore sessione', error.message);
-      setSession(data?.session || null);
+
+    if (!supabase) {
+      setSession(null);
       setAuthReady(true);
-    });
+      return () => { active = false; };
+    }
 
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, nextSession) => {
         setSession(nextSession || null);
         setAuthReady(true);
-        if (!nextSession) setCloudReady(false);
+        if (!nextSession) {
+          setCloudReady(false);
+          setCloudAvailable(false);
+          setCloudError('');
+        }
       }
     );
+
+    supabase.auth.getSession()
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) throw error;
+        setSession(data?.session || null);
+      })
+      .catch((error) => {
+        console.warn('Errore sessione', error.message);
+        if (active) setAccountMessage('Impossibile verificare la sessione. Accedi di nuovo.');
+      })
+      .finally(() => {
+        if (active) setAuthReady(true);
+      });
 
     return () => {
       active = false;
@@ -182,11 +203,13 @@ const [goalSaved, setGoalSaved] = useState('');
   }, []);
 
   useEffect(() => {
-    if (!ready || !authReady || !session) return;
+    if (!ready || !authReady || !session || !supabase) return;
     let active = true;
 
     async function loadCloud() {
       setCloudReady(false);
+      setCloudAvailable(false);
+      setCloudError('');
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         const localData = raw ? { ...INITIAL, ...JSON.parse(raw) } : data;
@@ -200,6 +223,7 @@ const [goalSaved, setGoalSaved] = useState('');
         if (error) throw error;
 
         if (row?.data && typeof row.data === 'object') {
+          // Keep a recoverable copy before replacing the local snapshot with cloud data.
           if (raw) {
             await AsyncStorage.setItem(
               `lifeos-local-backup-${session.user.id}`,
@@ -219,16 +243,24 @@ const [goalSaved, setGoalSaved] = useState('');
           if (active) setData(localData);
         }
 
-        if (active) setCloudReady(true);
+        if (active) {
+          setCloudAvailable(true);
+          setCloudReady(true);
+        }
       } catch (err) {
         console.warn('Errore caricamento cloud LifeOS', err.message);
-        if (active) setCloudReady(false);
+        if (active) {
+          // Cloud outages must not lock the user out of their local data.
+          setCloudAvailable(false);
+          setCloudError('Cloud non raggiungibile: puoi continuare a usare i dati salvati su questo dispositivo. Riprova la sincronizzazione quando il servizio torna disponibile.');
+          setCloudReady(true);
+        }
       }
     }
 
     loadCloud();
     return () => { active = false; };
-  }, [ready, authReady, session?.user?.id]);
+  }, [ready, authReady, session?.user?.id, cloudRetry]);
 
   useEffect(() => {
     if (!ready) return;
@@ -237,18 +269,25 @@ const [goalSaved, setGoalSaved] = useState('');
   }, [data, ready]);
 
   useEffect(() => {
-    if (!ready || !session || !cloudReady) return;
+    if (!ready || !session || !cloudReady || !cloudAvailable || !supabase) return;
     const timer = setTimeout(async () => {
-      const { error } = await supabase.from('lifeos_data').upsert({
-        user_id: session.user.id,
-        data,
-        updated_at: new Date().toISOString(),
-      });
-      if (error) console.warn('Errore salvataggio cloud', error.message);
-    }, 500);
+      try {
+        const { error } = await supabase.from('lifeos_data').upsert({
+          user_id: session.user.id,
+          data,
+          updated_at: new Date().toISOString(),
+        });
+        if (error) throw error;
+        setCloudError('');
+      } catch (error) {
+        console.warn('Errore salvataggio cloud', error.message);
+        setCloudAvailable(false);
+        setCloudError('Modifiche salvate sul dispositivo, ma non sincronizzate. Premi Riprova per ritentare.');
+      }
+    }, 700);
 
     return () => clearTimeout(timer);
-  }, [data, ready, session?.user?.id, cloudReady]);
+  }, [data, ready, session?.user?.id, cloudReady, cloudAvailable]);
 
 
 const exportBackup = async () => {
@@ -1099,25 +1138,13 @@ const lifeosCompletion = lifeosTasks.length
 <View style={styles.card}>
   <Text style={styles.heading}>Backup dei dati</Text>
   <Text style={styles.muted}>
-    Esporta una copia dei tuoi dati LifeOS.
+    Esporta una copia dei tuoi dati LifeOS oppure ripristina un backup JSON dal web.
   </Text>
-  <Pressable
-    style={styles.button}
-    onPress={exportBackup}
-  >
-
-<Pressable
-  style={styles.button}
-  onPress={importBackup}
->
-  <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
-    Importa backup
-  </Text>
-</Pressable>
-
-    <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>
-      Esporta backup
-    </Text>
+  <Pressable style={styles.button} onPress={exportBackup}>
+    <Text style={styles.buttonText}>Esporta backup</Text>
+  </Pressable>
+  <Pressable style={[styles.button, styles.buttonSecondary]} onPress={importBackup}>
+    <Text style={styles.buttonText}>Importa backup</Text>
   </Pressable>
 </View>
 
@@ -2565,11 +2592,23 @@ const progress =
 
               <View style={styles.separator} />
 
-              <Text style={styles.cardTitle}>Stato</Text>
-              <Text style={styles.green}>Connesso a LifeOS</Text>
-              <Text style={styles.muted}>
-                I dati dell'app sono associati al tuo account.
+              <Text style={styles.cardTitle}>Sincronizzazione</Text>
+              <Text style={cloudAvailable ? styles.green : styles.red}>
+                {cloudAvailable ? 'Cloud attivo' : 'Solo dati locali'}
               </Text>
+              <Text style={styles.muted}>
+                {cloudError || 'Le modifiche vengono salvate sul dispositivo e sincronizzate con il tuo account quando il cloud è disponibile.'}
+              </Text>
+              <Pressable
+                style={[styles.button, styles.buttonSecondary]}
+                onPress={() => {
+                  setCloudError('');
+                  setCloudRetry((value) => value + 1);
+                }}
+                disabled={!supabase}
+              >
+                <Text style={styles.buttonText}>Riprova sincronizzazione</Text>
+              </Pressable>
 
               {!!accountMessage && (
                 <Text style={styles.red}>{accountMessage}</Text>

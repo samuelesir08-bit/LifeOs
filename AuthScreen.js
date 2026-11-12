@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import {
   View,
@@ -7,9 +6,8 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
-import { supabase } from './supabase';
+import { supabase, supabaseConfigError } from './supabase';
 
 export default function AuthScreen() {
   const [mode, setMode] = useState('login');
@@ -21,31 +19,35 @@ export default function AuthScreen() {
   async function handleAuth() {
     const cleanEmail = email.trim().toLowerCase();
 
-    if (!cleanEmail || !password) {
-      setMessage('Inserisci email e password.');
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      setMessage('Inserisci un indirizzo email valido.');
       return;
     }
-
-    if (password.length < 6) {
-      setMessage('La password deve contenere almeno 6 caratteri.');
+    if (!password) {
+      setMessage('Inserisci la password.');
+      return;
+    }
+    if (mode === 'signup' && password.length < 8) {
+      setMessage('Per un nuovo account, usa almeno 8 caratteri.');
+      return;
+    }
+    if (!supabase) {
+      setMessage(supabaseConfigError || 'Servizio account non configurato.');
       return;
     }
 
     setLoading(true);
     setMessage('');
-
     try {
       if (mode === 'signup') {
         const { data, error } = await supabase.auth.signUp({
           email: cleanEmail,
           password,
         });
-
         if (error) throw error;
-
         setMessage(
           data.session
-            ? 'Account creato. Puoi accedere a LifeOS.'
+            ? 'Account creato. Puoi iniziare a usare LifeOS.'
             : 'Registrazione inviata. Controlla la tua email per confermare l’account.'
         );
       } else {
@@ -53,11 +55,34 @@ export default function AuthScreen() {
           email: cleanEmail,
           password,
         });
-
         if (error) throw error;
       }
     } catch (error) {
-      setMessage(error.message || 'Si è verificato un errore.');
+      setMessage(error.message || 'Si è verificato un errore. Riprova.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handlePasswordReset() {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      setMessage('Inserisci prima un indirizzo email valido.');
+      return;
+    }
+    if (!supabase) {
+      setMessage(supabaseConfigError || 'Servizio account non configurato.');
+      return;
+    }
+
+    setLoading(true);
+    setMessage('');
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail);
+      if (error) throw error;
+      setMessage('Se l’indirizzo è registrato, riceverai un’email per reimpostare la password.');
+    } catch (error) {
+      setMessage(error.message || 'Impossibile inviare il link di recupero.');
     } finally {
       setLoading(false);
     }
@@ -75,6 +100,10 @@ export default function AuthScreen() {
           {mode === 'login' ? 'Bentornato' : 'Crea il tuo account'}
         </Text>
 
+        {!!supabaseConfigError && (
+          <Text style={styles.warning}>{supabaseConfigError}</Text>
+        )}
+
         <TextInput
           style={styles.input}
           placeholder="Email"
@@ -82,8 +111,10 @@ export default function AuthScreen() {
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
+          autoCorrect={false}
           keyboardType="email-address"
           autoComplete="email"
+          textContentType="emailAddress"
         />
 
         <TextInput
@@ -93,17 +124,18 @@ export default function AuthScreen() {
           value={password}
           onChangeText={setPassword}
           secureTextEntry
-          autoComplete={
-            mode === 'login' ? 'current-password' : 'new-password'
-          }
+          autoCapitalize="none"
+          autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+          textContentType={mode === 'login' ? 'password' : 'newPassword'}
+          onSubmitEditing={handleAuth}
         />
 
         {!!message && <Text style={styles.message}>{message}</Text>}
 
         <Pressable
-          style={[styles.button, loading && styles.disabled]}
+          style={[styles.button, (loading || !supabase) && styles.disabled]}
           onPress={handleAuth}
-          disabled={loading}
+          disabled={loading || !supabase}
         >
           {loading ? (
             <ActivityIndicator color="#FFFFFF" />
@@ -114,10 +146,17 @@ export default function AuthScreen() {
           )}
         </Pressable>
 
+        {mode === 'login' && (
+          <Pressable onPress={handlePasswordReset} style={styles.switch} disabled={loading || !supabase}>
+            <Text style={styles.switchText}>Password dimenticata?</Text>
+          </Pressable>
+        )}
+
         <Pressable
           onPress={() => {
             setMode(mode === 'login' ? 'signup' : 'login');
             setMessage('');
+            setPassword('');
           }}
           style={styles.switch}
         >
@@ -200,9 +239,17 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     lineHeight: 20,
   },
+  warning: {
+    color: '#FCA5A5',
+    backgroundColor: '#3B1D2A',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 14,
+    lineHeight: 20,
+  },
   switch: {
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 18,
   },
   switchText: {
     color: '#B9C4FF',
