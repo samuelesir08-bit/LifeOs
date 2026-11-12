@@ -6,6 +6,7 @@ This release focuses on making the existing product easier to use without changi
 
 - The Home screen is now a compact daily command center: live date and greeting, recorded balance, open tasks, today's habit progress, quick task capture, next recommended action, today's schedule and habit checklist.
 - Repeated dashboard summaries were removed in favor of a smaller set of actionable sections.
+- One-tap date shortcuts are available for today, tomorrow and seven days ahead on tasks/events, plus seven and thirty days ahead for project targets.
 - The main navigation is reduced to Home, Attività, Calendario and Analisi, with a fifth "Altro" entry for Soldi, Obiettivi, Progetti, Abitudini, Studio and Account.
 
 ## Dates and habits
