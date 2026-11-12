@@ -115,6 +115,7 @@ const getWeeklyOverview = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMoreNav, setShowMoreNav] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const dateInDays = (days) => { const next = new Date(currentDate); next.setDate(next.getDate() + days); return localDateKey(next); };
   useEffect(() => { const timer = setInterval(() => setCurrentDate(new Date()), 30000); return () => clearInterval(timer); }, []);
   const [eventFilter, setEventFilter] = useState('Tutti');
   const [data, setData] = useState(INITIAL);
@@ -1381,9 +1382,14 @@ const lifeosCompletion = lifeosTasks.length
     {heading('Nuovo evento')}
     {field('Titolo evento', eventTitle, setEventTitle)}
     {field('Descrizione (facoltativa)', eventDescription, setEventDescription)}
-    {field('Data (AAAA-MM-GG)', eventDate, setEventDate, {
-      placeholder: 'AAAA-MM-GG',
-    })}
+    {field('Data (AAAA-MM-GG)', eventDate, setEventDate, { placeholder: 'AAAA-MM-GG' })}
+    <View style={styles.categoryList}>
+      {[['Oggi', 0], ['Domani', 1], ['Tra 7 giorni', 7]].map(([label, days]) => (
+        <Pressable key={label} style={styles.categoryButton} onPress={() => setEventDate(dateInDays(days))}>
+          <Text style={styles.categoryText}>{label}</Text>
+        </Pressable>
+      ))}
+    </View>
     {field('Ora (facoltativa, HH:MM)', eventTime, setEventTime, {
       placeholder: 'HH:MM',
     })}
@@ -2185,6 +2191,13 @@ const progress =
     {field('Descrizione', projectDescription, setProjectDescription)}
     {field('Prossima azione', projectAction, setProjectAction)}
     {field('Data obiettivo (AAAA-MM-GG)', projectDate, setProjectDate)}
+    <View style={styles.categoryList}>
+      {[['Tra 7 giorni', 7], ['Tra 30 giorni', 30]].map(([label, days]) => (
+        <Pressable key={label} style={styles.categoryButton} onPress={() => setProjectDate(dateInDays(days))}>
+          <Text style={styles.categoryText}>{label}</Text>
+        </Pressable>
+      ))}
+    </View>
 
     <Text style={styles.muted}>Priorità</Text>
     <View style={styles.row}>
@@ -2291,10 +2304,14 @@ const progress =
                     onSubmitEditing: addTask,
                   }
                 )}
-                {field('Scadenza (AAAA-MM-GG, facoltativa)', taskDueDate, setTaskDueDate, {
-                  placeholder: '2026-11-20',
-                  autoCapitalize: 'none',
-                })}
+                {field('Scadenza (AAAA-MM-GG, facoltativa)', taskDueDate, setTaskDueDate, { placeholder: '2026-11-20', autoCapitalize: 'none' })}
+                <View style={styles.categoryList}>
+                  {[['Oggi', 0], ['Domani', 1], ['Tra 7 giorni', 7]].map(([label, days]) => (
+                    <Pressable key={label} style={styles.categoryButton} onPress={() => setTaskDueDate(dateInDays(days))}>
+                      <Text style={styles.categoryText}>{label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
                 <Text style={styles.muted}>Priorità dell'attività</Text>
 
 <View style={styles.row}>
