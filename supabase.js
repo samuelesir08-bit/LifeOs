@@ -5,17 +5,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-// A Supabase secret/service-role key must never be shipped in a client app.
-// Fail closed instead of accidentally exposing a privileged credential.
-const isPrivilegedKey =
-  typeof supabaseKey === 'string' &&
-  (supabaseKey.startsWith('sb_secret_') ||
-    supabaseKey.toLowerCase().includes('service_role'));
+// Expo public variables are bundled into the client. Accept only the modern
+// Supabase publishable key format; never ship secret/service-role credentials.
+const hasPublishableKey =
+  typeof supabaseKey === 'string' && supabaseKey.startsWith('sb_publishable_');
+const hasValidUrl =
+  typeof supabaseUrl === 'string' && /^https:\/\//.test(supabaseUrl);
 
-export const supabaseConfigError = !supabaseUrl || !supabaseKey
-  ? 'Configurazione Supabase mancante. Imposta URL e chiave publishable nelle variabili ambiente.'
-  : isPrivilegedKey
-    ? 'Chiave Supabase non sicura: usa una chiave publishable, mai una secret/service_role.'
+export const supabaseConfigError = !hasValidUrl
+  ? 'URL Supabase mancante o non valida. Inserisci l’URL https:// del progetto.'
+  : !hasPublishableKey
+    ? 'Chiave Supabase non valida: inserisci una chiave publishable sb_publishable_. Le chiavi secret/service_role non sono ammesse nell’app.'
     : null;
 
 export const isSupabaseConfigured = !supabaseConfigError;
