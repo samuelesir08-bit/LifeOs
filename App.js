@@ -1298,8 +1298,8 @@ const lifeosCompletion = lifeosTasks.length
     </View>
 
     <View style={{ flex: 1 }}>
-      <Text style={styles.muted}>Scadenze oggi</Text>
-      <Text style={styles.title}>{lifeosTodayEvents.length}</Text>
+      <Text style={styles.muted}>Attività oggi</Text>
+      <Text style={styles.title}>{lifeosTodayTasks.length}</Text>
     </View>
 
     <View style={{ flex: 1 }}>
@@ -1334,10 +1334,10 @@ const lifeosCompletion = lifeosTasks.length
     </View>
   </View>
 
-  {lifeosOverdueEvents.length > 0 && (
+  {(lifeosOverdueEvents.length > 0 || lifeosOverdueTasks.length > 0) && (
     <View style={{ marginTop: 16 }}>
       <Text style={styles.red}>
-        Attenzione: {lifeosOverdueEvents.length} scadenze superate
+        Da recuperare: {lifeosOverdueTasks.length} attività e {lifeosOverdueEvents.length} scadenze
       </Text>
     </View>
   )}
