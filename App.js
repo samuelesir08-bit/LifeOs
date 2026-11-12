@@ -307,7 +307,7 @@ const [goalSaved, setGoalSaved] = useState('');
   }, [data, ready, session?.user?.id, localDataReadyUserId]);
 
   useEffect(() => {
-    if (!ready || !session || !cloudReady || !cloudAvailable || !supabase) return;
+    if (!ready || !session || !cloudReady || !cloudAvailable || !supabase || localDataReadyUserId !== session.user.id) return;
     const timer = setTimeout(async () => {
       try {
         const { error } = await supabase.from('lifeos_data').upsert({
@@ -325,7 +325,7 @@ const [goalSaved, setGoalSaved] = useState('');
     }, 700);
 
     return () => clearTimeout(timer);
-  }, [data, ready, session?.user?.id, cloudReady, cloudAvailable]);
+  }, [data, ready, session?.user?.id, cloudReady, cloudAvailable, localDataReadyUserId]);
 
 
 const exportBackup = async () => {
