@@ -125,6 +125,8 @@ const getWeeklyOverview = () => {
 const [goalInput, setGoalInput] = useState('');
   const [taskName, setTaskName] = useState('');
   const [taskPriority, setTaskPriority] = useState('Media');
+  const [taskDueDate, setTaskDueDate] = useState('');
+  const [taskFilter, setTaskFilter] = useState('Tutte');
   const [subjectName, setSubjectName] = useState('');
 const [subjectCfu, setSubjectCfu] = useState('');
 const [subjectExamDate, setSubjectExamDate] = useState('');
@@ -539,6 +541,11 @@ function addTransaction() {
 
   function addTask() {
   if (!taskName.trim()) return;
+  const dueDate = taskDueDate.trim();
+  if (dueDate && !/^\\d{4}-\\d{2}-\\d{2}$/.test(dueDate)) {
+    Alert.alert('Data non valida', 'Usa il formato AAAA-MM-GG, ad esempio 2026-11-20.');
+    return;
+  }
 
   setData((old) => ({
     ...old,
@@ -548,6 +555,8 @@ function addTransaction() {
         name: taskName.trim(),
         done: false,
         priority: taskPriority,
+        dueDate: dueDate || null,
+        createdAt: new Date().toISOString(),
       },
       ...(old.tasks || []),
     ],
@@ -555,6 +564,7 @@ function addTransaction() {
 
   setTaskName('');
   setTaskPriority('Media');
+  setTaskDueDate('');
 }
 
 
@@ -942,6 +952,16 @@ const notifications = [
       priority: event.priority || 'Media',
       type: 'Evento',
     })),
+  ...(data.tasks || [])
+    .filter((task) => !task.done && task.dueDate)
+    .map((task) => ({
+      id: `task-${task.id}`,
+      title: task.name,
+      detail: `Attività · Scadenza: ${task.dueDate}`,
+      date: task.dueDate,
+      priority: task.priority || 'Media',
+      type: 'Attività',
+    })),
   ...(data.projects || [])
     .filter((project) => project.status !== 'Completato')
     .filter((project) => project.targetDate)
@@ -968,6 +988,26 @@ const lifeosProjects = data.projects || [];
 
 const lifeosOpenTasks = lifeosTasks.filter((task) => !task.done);
 const lifeosCompletedTasks = lifeosTasks.filter((task) => task.done);
+const lifeosTodayTasks = lifeosOpenTasks.filter((task) => task.dueDate === lifeosToday);
+const lifeosOverdueTasks = lifeosOpenTasks.filter(
+  (task) => task.dueDate && task.dueDate < lifeosToday
+);
+const visibleTasks = lifeosTasks
+  .filter((task) => {
+    if (taskFilter === 'Da fare') return !task.done;
+    if (taskFilter === 'Completate') return task.done;
+    if (taskFilter === 'Oggi') return !task.done && task.dueDate === lifeosToday;
+    if (taskFilter === 'Scadute') return !task.done && task.dueDate && task.dueDate < lifeosToday;
+    return true;
+  })
+  .sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    const aDate = a.dueDate || '9999-12-31';
+    const bDate = b.dueDate || '9999-12-31';
+    if (aDate !== bDate) return aDate.localeCompare(bDate);
+    const rank = { Alta: 0, Media: 1, Bassa: 2 };
+    return (rank[a.priority] ?? 1) - (rank[b.priority] ?? 1);
+  });
 
 const lifeosTodayEvents = lifeosEvents.filter(
   (event) => !event.done && event.date === lifeosToday
@@ -989,11 +1029,23 @@ const lifeosUrgentEvents = lifeosEvents
   )
   .sort((a, b) => a.date.localeCompare(b.date));
 
-const lifeosNextAction = lifeosOverdueEvents.length > 0
+const lifeosNextAction = lifeosOverdueTasks.length > 0
+  ? {
+      title: 'Recupera un’attività scaduta',
+      detail: lifeosOverdueTasks[0].name,
+      section: 'Attività',
+    }
+  : lifeosOverdueEvents.length > 0
   ? {
       title: 'Recupera una scadenza',
       detail: lifeosOverdueEvents[0].title,
       section: 'Calendario',
+    }
+  : lifeosTodayTasks.length > 0
+  ? {
+      title: 'Completa un’attività prevista oggi',
+      detail: lifeosTodayTasks[0].name,
+      section: 'Attività',
     }
   : lifeosTodayEvents.length > 0
   ? {
@@ -1135,19 +1187,6 @@ const lifeosCompletion = lifeosTasks.length
               </Text>
             </View>
 
-<View style={styles.card}>
-  <Text style={styles.heading}>Backup dei dati</Text>
-  <Text style={styles.muted}>
-    Esporta una copia dei tuoi dati LifeOS oppure ripristina un backup JSON dal web.
-  </Text>
-  <Pressable style={styles.button} onPress={exportBackup}>
-    <Text style={styles.buttonText}>Esporta backup</Text>
-  </Pressable>
-  <Pressable style={[styles.button, styles.buttonSecondary]} onPress={importBackup}>
-    <Text style={styles.buttonText}>Importa backup</Text>
-  </Pressable>
-</View>
-
             <View style={styles.row}>
               {card(
                 <>
@@ -1259,8 +1298,8 @@ const lifeosCompletion = lifeosTasks.length
     </View>
 
     <View style={{ flex: 1 }}>
-      <Text style={styles.muted}>Scadenze oggi</Text>
-      <Text style={styles.title}>{lifeosTodayEvents.length}</Text>
+      <Text style={styles.muted}>Attività oggi</Text>
+      <Text style={styles.title}>{lifeosTodayTasks.length}</Text>
     </View>
 
     <View style={{ flex: 1 }}>
@@ -1295,10 +1334,10 @@ const lifeosCompletion = lifeosTasks.length
     </View>
   </View>
 
-  {lifeosOverdueEvents.length > 0 && (
+  {(lifeosOverdueEvents.length > 0 || lifeosOverdueTasks.length > 0) && (
     <View style={{ marginTop: 16 }}>
       <Text style={styles.red}>
-        Attenzione: {lifeosOverdueEvents.length} scadenze superate
+        Da recuperare: {lifeosOverdueTasks.length} attività e {lifeosOverdueEvents.length} scadenze
       </Text>
     </View>
   )}
@@ -2363,6 +2402,10 @@ const progress =
                     onSubmitEditing: addTask,
                   }
                 )}
+                {field('Scadenza (AAAA-MM-GG, facoltativa)', taskDueDate, setTaskDueDate, {
+                  placeholder: '2026-11-20',
+                  autoCapitalize: 'none',
+                })}
                 <Text style={styles.muted}>Priorità dell'attività</Text>
 
 <View style={styles.row}>
@@ -2395,40 +2438,62 @@ const progress =
               </>
             )}
 
-            {heading(
-              `Completate: ${doneTasks}/${data.tasks.length}`
-            )}
+            {heading(`Completate: ${doneTasks}/${data.tasks.length}`)}
 
-            {data.tasks.length === 0
+            <View style={styles.categoryList}>
+              {['Tutte', 'Da fare', 'Oggi', 'Scadute', 'Completate'].map((filter) => (
+                <Pressable
+                  key={filter}
+                  onPress={() => setTaskFilter(filter)}
+                  style={[styles.categoryButton, taskFilter === filter && styles.categorySelected]}
+                >
+                  <Text style={styles.categoryText}>{filter}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {visibleTasks.length === 0
               ? card(
                   <Text style={styles.muted}>
-                    Aggiungi la tua prima attività.
+                    Nessuna attività in questa vista. Aggiungi un’attività o cambia filtro.
                   </Text>
                 )
-              : data.tasks.map((x) => (
-                  <Pressable
-                    key={x.id}
-                    style={styles.listItem}
-                    onPress={() => toggleTask(x.id)}
-                  >
-                    <Text style={styles.check}>
-                      {x.done ? '☑' : '☐'}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.itemText,
-                        styles.flex,
-                        x.done && styles.done,
-                      ]}
+              : visibleTasks.map((x) => (
+                  <View key={x.id} style={styles.listItem}>
+                    <Pressable
+                      style={styles.flex}
+                      onPress={() => toggleTask(x.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={x.done ? `Riapri ${x.name}` : `Completa ${x.name}`}
                     >
-                      {x.name}
+                      <Text style={styles.check}>{x.done ? '☑' : '☐'}</Text>
+                      <Text style={[styles.itemText, x.done && styles.done]}>{x.name}</Text>
                       <Text style={styles.muted}>
-  <Text style={styles.muted}>
-  Priorità: {x.priority || 'Media'}
-   </Text>
-    </Text>
-                    </Text>
-                  </Pressable>
+                        Priorità: {x.priority || 'Media'}
+                        {x.dueDate ? ` · Scadenza: ${x.dueDate}` : ' · Nessuna scadenza'}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        const remove = () => setData((old) => ({
+                          ...old,
+                          tasks: old.tasks.filter((task) => task.id !== x.id),
+                        }));
+                        if (Platform.OS === 'web') {
+                          if (window.confirm(`Eliminare "${x.name}"?`)) remove();
+                        } else {
+                          Alert.alert('Elimina attività', `Vuoi eliminare "${x.name}"?`, [
+                            { text: 'Annulla', style: 'cancel' },
+                            { text: 'Elimina', style: 'destructive', onPress: remove },
+                          ]);
+                        }
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Elimina ${x.name}`}
+                    >
+                      <Text style={styles.delete}>×</Text>
+                    </Pressable>
+                  </View>
                 ))}
           </>
         )}
@@ -2592,6 +2657,19 @@ const progress =
 
               <View style={styles.separator} />
 
+              <Text style={styles.cardTitle}>Backup e sicurezza</Text>
+              <Text style={styles.muted}>
+                Esporta periodicamente una copia dei tuoi dati. Conserva il file in un luogo sicuro.
+              </Text>
+              <Pressable style={styles.button} onPress={exportBackup}>
+                <Text style={styles.buttonText}>Esporta backup</Text>
+              </Pressable>
+              <Pressable style={[styles.button, styles.buttonSecondary]} onPress={importBackup}>
+                <Text style={styles.buttonText}>Importa backup (solo web)</Text>
+              </Pressable>
+
+              <View style={styles.separator} />
+
               <Text style={styles.cardTitle}>Sincronizzazione</Text>
               <Text style={cloudAvailable ? styles.green : styles.red}>
                 {cloudAvailable ? 'Cloud attivo' : 'Solo dati locali'}
@@ -2640,47 +2718,40 @@ const progress =
         )}
 
         <Text style={styles.footer}>
-          LIFEOS · VERSIONE 0.1
+          LIFEOS · VERSIONE 0.2
         </Text>
       </ScrollView>
 
       <View style={styles.nav}>
-        
-{[
-  ['⌂', 'Home'],
-  ['€', 'Soldi'],
-  ['▥', 'Analisi'],
-  ['◎', 'Obiettivi'],
-  ['🚀', 'Progetti'],
-  ['✓', 'Attività'],
-  ['◉', 'Abitudini'],
-  ['▦', 'Calendario'],
-['📚', 'Studio'],
-].map(([icon, label]) => (
-
-          <Pressable
-            key={label}
-            style={styles.navItem}
-            onPress={() => setTab(label)}
-          >
-            <Text
-              style={[
-                styles.navIcon,
-                tab === label && styles.active,
-              ]}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.navContent}
+        >
+          {[
+            ['⌂', 'Home'],
+            ['€', 'Soldi'],
+            ['▥', 'Analisi'],
+            ['◎', 'Obiettivi'],
+            ['🚀', 'Progetti'],
+            ['✓', 'Attività'],
+            ['◉', 'Abitudini'],
+            ['▦', 'Calendario'],
+            ['📚', 'Studio'],
+            ['⚙', 'Account'],
+          ].map(([icon, label]) => (
+            <Pressable
+              key={label}
+              style={styles.navItem}
+              onPress={() => setTab(label)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: tab === label }}
             >
-              {icon}
-            </Text>
-            <Text
-              style={[
-                styles.navLabel,
-                tab === label && styles.active,
-              ]}
-            >
-              {label}
-            </Text>
-          </Pressable>
-        ))}
+              <Text style={[styles.navIcon, tab === label && styles.active]}>{icon}</Text>
+              <Text style={[styles.navLabel, tab === label && styles.active]}>{label}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
       </View>
     </SafeAreaView>
   );
@@ -2911,17 +2982,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   nav: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingTop: 9,
-    paddingBottom: 7,
     backgroundColor: '#171A26',
     borderTopWidth: 1,
     borderTopColor: '#292E3D',
+    paddingTop: 8,
+    paddingBottom: 7,
+  },
+  navContent: {
+    alignItems: 'center',
+    paddingHorizontal: 8,
   },
   navItem: {
-    flex: 1,
+    width: 76,
     alignItems: 'center',
     gap: 4,
     paddingVertical: 4,
