@@ -146,6 +146,10 @@ const getWeeklyOverview = () => {
   const [localDataReadyUserId, setLocalDataReadyUserId] = useState(null);
   const [accountMessage, setAccountMessage] = useState('');
   const [tab, setTab] = useState('Home');
+  useEffect(() => {
+    setActiveForm(null);
+    setShowBudgetEditor(false);
+  }, [tab]);
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [kind, setKind] = useState('expense');
