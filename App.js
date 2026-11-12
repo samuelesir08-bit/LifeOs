@@ -45,6 +45,7 @@ const INITIAL = {
   tasks: [],
   events: [],
   subjects: [],
+  expenseCategories: CATEGORIES,
   budgets: DEFAULT_BUDGETS,
   savingsGoal: 1000,
   habits: [
@@ -121,6 +122,7 @@ const getWeeklyOverview = () => {
   useEffect(() => { const timer = setInterval(() => setCurrentDate(new Date()), 30000); return () => clearInterval(timer); }, []);
   const [eventFilter, setEventFilter] = useState('Tutti');
   const [data, setData] = useState(INITIAL);
+  const expenseCategories = Array.isArray(data.expenseCategories) && data.expenseCategories.length ? data.expenseCategories : CATEGORIES;
   const [editingHabitId, setEditingHabitId] = useState(null);
   const [habitName, setHabitName] = useState('');
   const [ready, setReady] = useState(false);
@@ -179,6 +181,8 @@ const [calendarLoading, setCalendarLoading] = useState(false);
 const [syncAppleCalendar, setSyncAppleCalendar] = useState(false);
 
 const [budgetInputs, setBudgetInputs] = useState({});
+const [categoryName, setCategoryName] = useState('');
+const [editingCategory, setEditingCategory] = useState(null);
 const [goalName, setGoalName] = useState('');
 const [goalTarget, setGoalTarget] = useState('');
 const [goalSaved, setGoalSaved] = useState('');
@@ -567,7 +571,7 @@ const lastSixMonths = Array.from({ length: 6 }, (_, i) => {
   };
 });
 
-const categoryAnalysis = CATEGORIES.map((name) => ({
+const categoryAnalysis = expenseCategories.map((name) => ({
   name,
   total: monthlyTransactions
     .filter(
@@ -589,6 +593,7 @@ const maxMonthlyValue = Math.max(
   
 function addTransaction() {
   const value = Number(amount.trim().replace(',', '.'));
+  const selectedCategory = expenseCategories.includes(category) ? category : expenseCategories[0];
 
   if (
     !description.trim() ||
@@ -606,7 +611,7 @@ function addTransaction() {
         description: description.trim(),
         amount: Math.round(value * 100) / 100,
         kind,
-        category,
+        category: selectedCategory,
         month: `${currentDate.getFullYear()}-${String(
           currentDate.getMonth() + 1
         ).padStart(2, '0')}`,
@@ -620,6 +625,75 @@ function addTransaction() {
   setDescription('');
   setAmount('');
   setActiveForm(null);
+}
+
+function saveExpenseCategory() {
+  const name = categoryName.trim();
+  if (!name) return;
+  const duplicate = expenseCategories.some((item) => item.toLocaleLowerCase('it-IT') === name.toLocaleLowerCase('it-IT') && item !== editingCategory);
+  if (duplicate) {
+    if (Platform.OS === 'web') window.alert('Esiste già una categoria con questo nome.');
+    else Alert.alert('Categoria già esistente', 'Scegli un nome diverso.');
+    return;
+  }
+  if (editingCategory) {
+    setData((old) => {
+      const nextBudgets = { ...(old.budgets || {}) };
+      if (nextBudgets[editingCategory] !== undefined) {
+        nextBudgets[name] = nextBudgets[editingCategory];
+        delete nextBudgets[editingCategory];
+      }
+      return {
+        ...old,
+        expenseCategories: (old.expenseCategories || CATEGORIES).map((item) => item === editingCategory ? name : item),
+        budgets: nextBudgets,
+        transactions: (old.transactions || []).map((transaction) => transaction.category === editingCategory ? { ...transaction, category: name } : transaction),
+      };
+    });
+    if (category === editingCategory) setCategory(name);
+  } else {
+    setData((old) => ({
+      ...old,
+      expenseCategories: [...(Array.isArray(old.expenseCategories) && old.expenseCategories.length ? old.expenseCategories : CATEGORIES), name],
+      budgets: { ...(old.budgets || {}), [name]: 0 },
+    }));
+    setCategory(name);
+  }
+  setCategoryName('');
+  setEditingCategory(null);
+  setActiveForm(null);
+}
+
+function deleteExpenseCategory(name) {
+  if (expenseCategories.length <= 1) {
+    if (Platform.OS === 'web') window.alert('Deve rimanere almeno una categoria.');
+    else Alert.alert('Operazione non consentita', 'Deve rimanere almeno una categoria.');
+    return;
+  }
+  const fallback = expenseCategories.find((item) => item !== name);
+  const remove = () => {
+    setData((old) => {
+      const nextBudgets = { ...(old.budgets || {}) };
+      delete nextBudgets[name];
+      return {
+        ...old,
+        expenseCategories: (old.expenseCategories || CATEGORIES).filter((item) => item !== name),
+        budgets: nextBudgets,
+        transactions: (old.transactions || []).map((transaction) => transaction.category === name ? { ...transaction, category: fallback } : transaction),
+      };
+    });
+    if (category === name) setCategory(fallback);
+    if (editingCategory === name) { setEditingCategory(null); setCategoryName(''); }
+  };
+  const message = 'Eliminare la categoria "' + name + '"? Le spese già registrate resteranno nello storico e verranno riclassificate in "' + fallback + '".';
+  if (Platform.OS === 'web') {
+    if (window.confirm(message)) remove();
+  } else {
+    Alert.alert('Elimina categoria', message, [
+      { text: 'Annulla', style: 'cancel' },
+      { text: 'Elimina', style: 'destructive', onPress: remove },
+    ]);
+  }
 }
 
 
@@ -1710,7 +1784,7 @@ const lifeosCompletion = lifeosTasks.length
 <Text style={styles.muted}>Categoria</Text>
 
 <View style={styles.categoryList}>
-  {CATEGORIES.map((item) => (
+  {expenseCategories.map((item) => (
     <Pressable
       key={item}
       onPress={() => setCategory(item)}
@@ -1771,9 +1845,27 @@ const lifeosCompletion = lifeosTasks.length
 )}
 
 {heading('Budget per categoria')}
-{button(showBudgetEditor ? 'Chiudi modifica budget' : 'Modifica budget', () => setShowBudgetEditor((value) => !value), true)}
+{button(showBudgetEditor ? 'Chiudi gestione budget' : 'Gestisci budget', () => setShowBudgetEditor((value) => !value), true)}
+{button(activeForm === 'expense-categories' ? 'Chiudi categorie' : 'Gestisci categorie di spesa', () => { setEditingCategory(null); setCategoryName(''); setActiveForm(activeForm === 'expense-categories' ? null : 'expense-categories'); }, true)}
+{activeForm === 'expense-categories' && card(
+  <>
+    <Text style={styles.cardTitle}>Categorie di spesa</Text>
+    <Text style={styles.muted}>Aggiungi, rinomina o elimina le categorie. Le spese già registrate non verranno cancellate.</Text>
+    {expenseCategories.map((item) => (
+      <View key={item} style={[styles.listItem, { marginTop: 8 }]}>
+        <Text style={[styles.itemText, styles.flex]}>{item}</Text>
+        <Pressable onPress={() => { setEditingCategory(item); setCategoryName(item); }}><Text style={styles.categoryText}>Modifica</Text></Pressable>
+        <Pressable onPress={() => deleteExpenseCategory(item)}><Text style={styles.delete}>×</Text></Pressable>
+      </View>
+    ))}
+    <Text style={styles.muted}>{editingCategory ? 'Rinomina categoria' : 'Nuova categoria'}</Text>
+    {field('Nome categoria', categoryName, setCategoryName)}
+    {button(editingCategory ? 'Salva nome categoria' : 'Aggiungi categoria', saveExpenseCategory)}
+    {editingCategory && button('Annulla modifica', () => { setEditingCategory(null); setCategoryName(''); }, true)}
+  </>
+)}
 
-{CATEGORIES.map((item) => {
+{expenseCategories.map((item) => {
   const spent = monthlyTransactions
     .filter(
       (t) => t.kind === 'expense' && t.category === item
@@ -1859,7 +1951,6 @@ const lifeosCompletion = lifeosTasks.length
           setData((old) => ({
             ...old,
             budgets: {
-              ...DEFAULT_BUDGETS,
               ...(old.budgets || {}),
               [item]: value,
             },
@@ -1893,7 +1984,7 @@ const lifeosCompletion = lifeosTasks.length
                       <Text style={styles.itemText}>
                         {x.description}
                       </Text>
-                      <Text style={styles.muted}>{x.date}</Text>
+                      <Text style={styles.muted}>{x.date}{x.kind === 'expense' && x.category ? ` · ${x.category}` : ''}</Text>
                     </View>
 
                     <Text
