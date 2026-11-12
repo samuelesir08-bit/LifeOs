@@ -2017,8 +2017,8 @@ const lifeosCompletion = lifeosTasks.length
           {lastSixMonths.map((month) => (
             <View key={month.key} style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 116, gap: 3 }}>
-                <View style={{ width: 10, height: Math.max(3, (month.income / maxMonthlyValue) * 108), backgroundColor: '#35C995', borderRadius: 5 }} />
-                <View style={{ width: 10, height: Math.max(3, (month.expenses / maxMonthlyValue) * 108), backgroundColor: '#F17D91', borderRadius: 5 }} />
+                <View style={{ width: 10, height: month.income > 0 ? Math.max(4, (month.income / maxMonthlyValue) * 108) : 0, backgroundColor: '#35C995', borderRadius: 5 }} />
+                <View style={{ width: 10, height: month.expenses > 0 ? Math.max(4, (month.expenses / maxMonthlyValue) * 108) : 0, backgroundColor: '#F17D91', borderRadius: 5 }} />
               </View>
               <Text style={[styles.muted, { marginTop: 9, fontSize: 10 }]}>{month.label}</Text>
             </View>
@@ -2913,7 +2913,7 @@ const styles = StyleSheet.create({
   morePanel: { backgroundColor: '#10192B', borderTopWidth: 1, borderColor: '#26334D', paddingHorizontal: 18, paddingTop: 14, paddingBottom: 12 },
   moreTitle: { color: '#A9B6CC', fontSize: 11, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 },
   moreGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  moreItem: { width: '31%', minHeight: 66, backgroundColor: '#18243A', borderRadius: 13, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2B3A55' },
+  moreItem: { width: '30%', minHeight: 66, backgroundColor: '#18243A', borderRadius: 13, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2B3A55' },
   moreIcon: { color: '#A99BFF', fontSize: 20, marginBottom: 4 },
   moreLabel: { color: '#E6ECF5', fontSize: 11, fontWeight: '700' },
   footer: {
