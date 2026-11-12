@@ -113,11 +113,27 @@ const getWeeklyOverview = () => {
   };
 };
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showMoreNav, setShowMoreNav] = useState(false);
+  const [currentDate, setCurrentDate] = useState(new Date());
+  useEffect(() => { const timer = setInterval(() => setCurrentDate(new Date()), 30000); return () => clearInterval(timer); }, []);
   const [eventFilter, setEventFilter] = useState('Tutti');
   const [data, setData] = useState(INITIAL);
   const [editingHabitId, setEditingHabitId] = useState(null);
   const [habitName, setHabitName] = useState('');
   const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (!ready) return;
+    const today = localDateKey(currentDate);
+    setData((old) => {
+      let changed = false;
+      const habits = (old.habits || []).map((habit) => {
+        if (Array.isArray(habit.completedDates)) return habit;
+        changed = true;
+        return { ...habit, completedDates: habit.done ? [today] : [], done: false };
+      });
+      return changed ? { ...old, habits } : old;
+    });
+  }, [ready]);
   const [session, setSession] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [cloudReady, setCloudReady] = useState(false);
@@ -476,8 +492,8 @@ const exportBackup = async () => {
     .reduce((sum, x) => sum + x.amount, 0);
 
   const balance = income - expenses;
-  const currentMonth = `${new Date().getFullYear()}-${String(
-  new Date().getMonth() + 1
+  const currentMonth = `${currentDate.getFullYear()}-${String(
+  currentDate.getMonth() + 1
 ).padStart(2, '0')}`;
 
 const monthlyTransactions = data.transactions.filter(
@@ -492,7 +508,7 @@ const monthlyIncome = monthlyTransactions
   .filter((t) => t.kind === 'income')
   .reduce((sum, t) => sum + t.amount, 0);
   const doneTasks = data.tasks.filter((x) => x.done).length;
-  const habitTodayKey = localDateKey();
+  const habitTodayKey = localDateKey(currentDate);
   const isHabitDoneToday = (habit) =>
     Array.isArray(habit.completedDates)
       ? habit.completedDates.includes(habitTodayKey)
@@ -584,10 +600,11 @@ function addTransaction() {
         amount: Math.round(value * 100) / 100,
         kind,
         category,
-        month: `${new Date().getFullYear()}-${String(
-          new Date().getMonth() + 1
+        month: `${currentDate.getFullYear()}-${String(
+          currentDate.getMonth() + 1
         ).padStart(2, '0')}`,
-        date: new Date().toLocaleDateString('it-IT'),
+        dateISO: localDateKey(currentDate),
+        date: currentDate.toLocaleDateString('it-IT'),
       },
       ...old.transactions,
     ],
@@ -1047,13 +1064,7 @@ const notifications = [
       type: 'Progetto',
     })),
 ].sort((a, b) => a.date.localeCompare(b.date));
-const lifeosToday = (() => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-})();
+const lifeosToday = localDateKey(currentDate);
 
 const lifeosTasks = data.tasks || [];
 const lifeosEvents = data.events || [];
@@ -1214,7 +1225,7 @@ const lifeosCompletion = lifeosTasks.length
             LIFE<Text style={styles.purple}>OS</Text>
           </Text>
           <Text style={styles.eyebrow}>
-            IL TUO CENTRO DI CONTROLLO
+            {currentDate.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </Text>
         </View>
 
@@ -2217,8 +2228,30 @@ const lifeosCompletion = lifeosTasks.length
 
     {card(
       <>
+        <Text style={styles.cardTitle}>Andamento degli ultimi 6 mesi</Text>
+        <Text style={styles.muted}>Confronto tra entrate e uscite registrate</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 150, marginTop: 18, gap: 8 }}>
+          {lastSixMonths.map((month) => (
+            <View key={month.key} style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 116, gap: 3 }}>
+                <View style={{ width: 10, height: Math.max(3, (month.income / maxMonthlyValue) * 108), backgroundColor: '#35C995', borderRadius: 5 }} />
+                <View style={{ width: 10, height: Math.max(3, (month.expenses / maxMonthlyValue) * 108), backgroundColor: '#F17D91', borderRadius: 5 }} />
+              </View>
+              <Text style={[styles.muted, { marginTop: 9, fontSize: 10 }]}>{month.label}</Text>
+            </View>
+          ))}
+        </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 18, marginTop: 12 }}>
+          <Text style={styles.green}>● Entrate</Text>
+          <Text style={styles.red}>● Uscite</Text>
+        </View>
+      </>
+    )}
+
+    {card(
+      <>
         <Text style={styles.cardTitle}>
-          3. Andamento degli ultimi sei mesi
+          3. Dettaglio mensile degli ultimi sei mesi
         </Text>
 
         {lastSixMonths.map((month) => (
@@ -2704,24 +2737,7 @@ const progress =
     true
   )}
 
-                {button(
-                  'Azzera per un nuovo giorno',
-                  () =>
-                    setData((old) => ({
-                      ...old,
-                      habits: old.habits.map((habit) => {
-                        const completedDates = Array.isArray(habit.completedDates)
-                          ? habit.completedDates
-                          : habit.done ? [habitTodayKey] : [];
-                        return {
-                          ...habit,
-                          completedDates: completedDates.filter((date) => date !== habitTodayKey),
-                          done: false,
-                        };
-                      }),
-                    })),
-                  true
-                )}
+                <Text style={styles.muted}>Il nuovo giorno si apre automaticamente: lo storico resta intatto e i progressi ripartono da oggi.</Text>
               </>
             )}
           </>
@@ -2803,41 +2819,42 @@ const progress =
           </View>
         )}
 
-        <Text style={styles.footer}>
-          LIFEOS · VERSIONE 0.2
-        </Text>
+        <Text style={styles.footer}>LIFEOS · IL TUO SISTEMA PERSONALE</Text>
       </ScrollView>
 
+      {showMoreNav && (
+        <View style={styles.morePanel}>
+          <Text style={styles.moreTitle}>Altri strumenti</Text>
+          <View style={styles.moreGrid}>
+            {[
+              ['€', 'Soldi'], ['◎', 'Obiettivi'], ['↗', 'Progetti'],
+              ['◉', 'Abitudini'], ['▤', 'Studio'], ['⚙', 'Account'],
+            ].map(([icon, label]) => (
+              <Pressable key={label} style={styles.moreItem} onPress={() => { setTab(label); setShowMoreNav(false); }}>
+                <Text style={styles.moreIcon}>{icon}</Text>
+                <Text style={styles.moreLabel}>{label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      )}
       <View style={styles.nav}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.navContent}
-        >
-          {[
-            ['⌂', 'Home'],
-            ['€', 'Soldi'],
-            ['▥', 'Analisi'],
-            ['◎', 'Obiettivi'],
-            ['🚀', 'Progetti'],
-            ['✓', 'Attività'],
-            ['◉', 'Abitudini'],
-            ['▦', 'Calendario'],
-            ['📚', 'Studio'],
-            ['⚙', 'Account'],
-          ].map(([icon, label]) => (
-            <Pressable
-              key={label}
-              style={styles.navItem}
-              onPress={() => setTab(label)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: tab === label }}
-            >
-              <Text style={[styles.navIcon, tab === label && styles.active]}>{icon}</Text>
-              <Text style={[styles.navLabel, tab === label && styles.active]}>{label}</Text>
+        {[
+          ['⌂', 'Home'], ['✓', 'Attività'], ['▦', 'Calendario'],
+          ['▥', 'Analisi'], ['•••', 'Altro'],
+        ].map(([icon, label]) => {
+          const selected = label === 'Altro'
+            ? showMoreNav || !['Home', 'Attività', 'Calendario', 'Analisi'].includes(tab)
+            : tab === label;
+          return (
+            <Pressable key={label} style={styles.navItem}
+              onPress={() => label === 'Altro' ? setShowMoreNav((value) => !value) : (setShowMoreNav(false), setTab(label))}
+              accessibilityRole="button" accessibilityState={{ selected }}>
+              <Text style={[styles.navIcon, selected && styles.active]}>{icon}</Text>
+              <Text style={[styles.navLabel, selected && styles.active]}>{label}</Text>
             </Pressable>
-          ))}
-        </ScrollView>
+          );
+        })}
       </View>
     </SafeAreaView>
   );
@@ -2846,7 +2863,7 @@ const progress =
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#10131D',
+    backgroundColor: '#0B1020',
   },
   header: {
     paddingHorizontal: 22,
@@ -2886,10 +2903,16 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
   },
   hero: {
-    backgroundColor: '#292444',
-    borderRadius: 22,
-    padding: 21,
-    marginBottom: 13,
+    backgroundColor: '#25234A',
+    borderRadius: 24,
+    padding: 23,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#494477',
+    shadowColor: '#7565E8',
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    elevation: 5,
   },
   heroTitle: {
     color: '#FFFFFF',
@@ -2922,12 +2945,16 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   card: {
-    backgroundColor: '#1A1E2B',
-    borderRadius: 17,
-    padding: 15,
-    marginBottom: 11,
+    backgroundColor: '#141D30',
+    borderRadius: 19,
+    padding: 17,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#292E3D',
+    borderColor: '#25324B',
+    shadowColor: '#000000',
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 2,
   },
   heading: {
     color: '#FFFFFF',
@@ -2990,11 +3017,11 @@ const styles = StyleSheet.create({
     fontSize: 24,
   },
   input: {
-    backgroundColor: '#10131D',
-    color: '#FFFFFF',
-    borderRadius: 11,
+    backgroundColor: '#0D1526',
+    color: '#F8FAFC',
+    borderRadius: 13,
     borderWidth: 1,
-    borderColor: '#353B4D',
+    borderColor: '#2A3955',
     paddingHorizontal: 13,
     paddingVertical: 12,
     marginTop: 10,
@@ -3074,18 +3101,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   nav: {
-    backgroundColor: '#171A26',
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: '#10192B',
     borderTopWidth: 1,
-    borderTopColor: '#292E3D',
-    paddingTop: 8,
-    paddingBottom: 7,
-  },
-  navContent: {
-    alignItems: 'center',
-    paddingHorizontal: 8,
+    borderTopColor: '#26334D',
+    paddingTop: 10,
+    paddingBottom: 9,
   },
   navItem: {
-    width: 76,
+    flex: 1,
     alignItems: 'center',
     gap: 4,
     paddingVertical: 4,
@@ -3102,6 +3127,12 @@ const styles = StyleSheet.create({
   active: {
     color: '#B9B0FF',
   },
+  morePanel: { backgroundColor: '#10192B', borderTopWidth: 1, borderColor: '#26334D', paddingHorizontal: 18, paddingTop: 14, paddingBottom: 12 },
+  moreTitle: { color: '#A9B6CC', fontSize: 11, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 },
+  moreGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  moreItem: { width: '31%', minHeight: 66, backgroundColor: '#18243A', borderRadius: 13, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2B3A55' },
+  moreIcon: { color: '#A99BFF', fontSize: 20, marginBottom: 4 },
+  moreLabel: { color: '#E6ECF5', fontSize: 11, fontWeight: '700' },
   footer: {
     textAlign: 'center',
     color: '#5E6579',
