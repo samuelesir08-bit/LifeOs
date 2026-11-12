@@ -124,7 +124,7 @@ const getWeeklyOverview = () => {
   const [cloudAvailable, setCloudAvailable] = useState(false);
   const [cloudError, setCloudError] = useState('');
   const [cloudRetry, setCloudRetry] = useState(0);
-  const [localDataReady, setLocalDataReady] = useState(false);
+  const [localDataReadyUserId, setLocalDataReadyUserId] = useState(null);
   const [accountMessage, setAccountMessage] = useState('');
   const [tab, setTab] = useState('Home');
   const [description, setDescription] = useState('');
@@ -188,7 +188,7 @@ const [goalSaved, setGoalSaved] = useState('');
         if (!nextSession) {
           setCloudReady(false);
           setCloudAvailable(false);
-          setLocalDataReady(false);
+          setLocalDataReadyUserId(null);
           setCloudError('');
         }
       }
@@ -221,7 +221,7 @@ const [goalSaved, setGoalSaved] = useState('');
     async function loadCloud() {
       setCloudReady(false);
       setCloudAvailable(false);
-      setLocalDataReady(false);
+      setLocalDataReadyUserId(null);
       setCloudError('');
       let localData = INITIAL;
       try {
@@ -278,7 +278,7 @@ const [goalSaved, setGoalSaved] = useState('');
         }
 
         if (active) {
-          setLocalDataReady(true);
+          setLocalDataReadyUserId(session.user.id);
           setCloudAvailable(true);
           setCloudReady(true);
         }
@@ -287,7 +287,7 @@ const [goalSaved, setGoalSaved] = useState('');
         if (active) {
           // Cloud outages must not lock the user out of this account's local data.
           setData(localData);
-          setLocalDataReady(true);
+          setLocalDataReadyUserId(session.user.id);
           setCloudAvailable(false);
           setCloudError('Cloud non raggiungibile: puoi continuare a usare i dati salvati su questo account e dispositivo. Riprova la sincronizzazione quando il servizio torna disponibile.');
           setCloudReady(true);
@@ -300,11 +300,11 @@ const [goalSaved, setGoalSaved] = useState('');
   }, [ready, authReady, session?.user?.id, cloudRetry]);
 
   useEffect(() => {
-    if (!ready || !session?.user?.id || !localDataReady) return;
+    if (!ready || !session?.user?.id || localDataReadyUserId !== session.user.id) return;
     const scopedStorageKey = `${STORAGE_KEY}:${session.user.id}`;
     AsyncStorage.setItem(scopedStorageKey, JSON.stringify(data))
       .catch((err) => console.warn('Errore salvataggio locale', err));
-  }, [data, ready, session?.user?.id, localDataReady]);
+  }, [data, ready, session?.user?.id, localDataReadyUserId]);
 
   useEffect(() => {
     if (!ready || !session || !cloudReady || !cloudAvailable || !supabase) return;
