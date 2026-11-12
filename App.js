@@ -59,6 +59,13 @@ const euro = (n) =>
     currency: 'EUR',
   }).format(n);
 
+const localDateKey = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function App() {
   const getGoalProgress = (goal) => {
   const target = Number(goal.target) || 0;
@@ -456,7 +463,30 @@ const monthlyIncome = monthlyTransactions
   .filter((t) => t.kind === 'income')
   .reduce((sum, t) => sum + t.amount, 0);
   const doneTasks = data.tasks.filter((x) => x.done).length;
-  const doneHabits = data.habits.filter((x) => x.done).length;
+  const habitTodayKey = localDateKey();
+  const isHabitDoneToday = (habit) =>
+    Array.isArray(habit.completedDates)
+      ? habit.completedDates.includes(habitTodayKey)
+      : Boolean(habit.done);
+  const doneHabits = data.habits.filter(isHabitDoneToday).length;
+  const getHabitStreak = (habit) => {
+    const completedDates = new Set(
+      Array.isArray(habit.completedDates)
+        ? habit.completedDates
+        : habit.done ? [habitTodayKey] : []
+    );
+    const cursor = new Date();
+    cursor.setHours(0, 0, 0, 0);
+    if (!completedDates.has(localDateKey(cursor))) {
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    let streak = 0;
+    while (completedDates.has(localDateKey(cursor)) && streak < 3660) {
+      streak += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    return streak;
+  };
 
 const lastSixMonths = Array.from({ length: 6 }, (_, i) => {
   const date = new Date();
@@ -593,6 +623,7 @@ function addHabit() {
           id: String(Date.now()),
           name: habitName.trim(),
           done: false,
+          completedDates: [],
         },
       ],
     }));
@@ -933,11 +964,24 @@ function deleteProject(id) {
   }
 
   function toggleHabit(id) {
+    const today = localDateKey();
     setData((old) => ({
       ...old,
-      habits: old.habits.map((x) =>
-        x.id === id ? { ...x, done: !x.done } : x
-      ),
+      habits: old.habits.map((habit) => {
+        if (habit.id !== id) return habit;
+        const completedDates = Array.isArray(habit.completedDates)
+          ? habit.completedDates
+          : habit.done ? [today] : [];
+        const alreadyDone = completedDates.includes(today);
+        const nextDates = alreadyDone
+          ? completedDates.filter((date) => date !== today)
+          : [...completedDates, today];
+        return {
+          ...habit,
+          completedDates: nextDates,
+          done: !alreadyDone,
+        };
+      }),
     }));
   }
 
@@ -2529,23 +2573,29 @@ const progress =
 
             
 
-{data.habits.map((x) => (
+{data.habits.map((x) => {
+  const completedToday = isHabitDoneToday(x);
+  const streak = getHabitStreak(x);
+  return (
   <View key={x.id} style={styles.listItem}>
     <Pressable
       style={styles.flex}
       onPress={() => toggleHabit(x.id)}
     >
       <Text style={styles.check}>
-        {x.done ? '☑' : '☐'}
+        {completedToday ? '☑' : '☐'}
       </Text>
 
       <Text
         style={[
           styles.itemText,
-          x.done && styles.done,
+          completedToday && styles.done,
         ]}
       >
         {x.name}
+      </Text>
+      <Text style={styles.streak}>
+        🔥 {streak} {streak === 1 ? 'giorno' : 'giorni'}
       </Text>
     </Pressable>
 
@@ -2587,7 +2637,8 @@ const progress =
       }
     }, true)}
   </View>
-))}
+  );
+})}
 
             {card(
               <>
@@ -2629,10 +2680,16 @@ const progress =
                   () =>
                     setData((old) => ({
                       ...old,
-                      habits: old.habits.map((h) => ({
-                        ...h,
-                        done: false,
-                      })),
+                      habits: old.habits.map((habit) => {
+                        const completedDates = Array.isArray(habit.completedDates)
+                          ? habit.completedDates
+                          : habit.done ? [habitTodayKey] : [];
+                        return {
+                          ...habit,
+                          completedDates: completedDates.filter((date) => date !== habitTodayKey),
+                          done: false,
+                        };
+                      }),
                     })),
                   true
                 )}
@@ -2953,6 +3010,12 @@ const styles = StyleSheet.create({
   check: {
     color: '#B9B0FF',
     fontSize: 22,
+  },
+  streak: {
+    color: '#F6B84A',
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 5,
   },
   done: {
     color: '#777F95',
