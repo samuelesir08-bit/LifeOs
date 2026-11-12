@@ -30,7 +30,7 @@ References:
 - Bottom navigation attempts to fit nine destinations into one row; labels become cramped on phones.
 - Backup controls occupy the top of the Home dashboard instead of a dedicated account/settings area.
 - Tasks only have name, priority and completion state; there is no due date, useful filtering or delete affordance in the task list.
-- Habits are stored as a boolean and require a manual reset; this cannot support reliable streaks or history.
+- Habit history and streak tracking are now available, but weekly consistency reports and missed-day insights remain to be added.
 - The dashboard has useful summaries, but tasks and events are not consistently treated as one schedule.
 - Several inputs require manually typed dates without a date picker or validation beyond basic checks.
 - The interface has no global search, tags, recurring items, subtasks or keyboard-first quick capture.
@@ -59,6 +59,7 @@ References:
 - Included dated tasks in dashboard reminders and the suggested next action.
 - Moved backup actions from the main dashboard into Account.
 - Replaced the cramped nine-item bottom row with horizontally scrollable navigation and an Account destination.
+- Added backward-compatible daily habit completion history and current streak indicators.
 
 ## Prioritized roadmap
 
